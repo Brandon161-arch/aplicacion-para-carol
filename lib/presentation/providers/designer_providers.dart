@@ -9,11 +9,21 @@ import '../../domain/generators/cabinet_doors_drawer_generator.dart';
 import '../../domain/generators/furniture_generator.dart';
 import '../../domain/services/cut_list_calculator.dart';
 import '../../domain/services/furniture_validator.dart';
+import 'pricing_providers.dart';
 
-/// Catálogo de materiales de la Fase 1 (en memoria).
-final materialCatalogProvider = Provider<MaterialCatalog>(
-  (ref) => sampleMaterialCatalog,
-);
+/// Catálogo de materiales mezclado con los precios editables del usuario.
+final materialCatalogProvider = Provider<MaterialCatalog>((ref) {
+  final overrides =
+      ref.watch(localPricingProvider).asData?.value.materialPriceOverrides ??
+      const <String, int>{};
+  if (overrides.isEmpty) return sampleMaterialCatalog;
+  return MaterialCatalog([
+    for (final material in sampleMaterialCatalog.materials)
+      overrides.containsKey(material.id)
+          ? material.copyWith(priceCents: overrides[material.id])
+          : material,
+  ]);
+});
 
 /// Estado editable del mueble de ejemplo.
 class DesignerController extends Notifier<CabinetSpec> {

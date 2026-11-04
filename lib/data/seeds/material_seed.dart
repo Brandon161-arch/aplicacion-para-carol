@@ -1,9 +1,9 @@
 import '../../domain/entities/material.dart';
 
-/// Catálogo inicial de materiales de la Fase 1.
+/// Precios iniciales de referencia en COP (consulta: 4-nov-2026).
 ///
-/// Los precios son de referencia y se podrán editar/conectar a una fuente de
-/// mercado en la fase de costos.
+/// Los valores varían por ciudad, color, marca y disponibilidad. Se pueden
+/// editar desde la pantalla de costos; no son una cotización de compra.
 const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
   Material(
     id: 'mdf_15',
@@ -12,8 +12,10 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     thicknessesMm: [15],
     sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 15500000,
+    priceCents: 13490000,
     edgeBandingPricePerMeterCents: 120000,
+    priceSource: 'Homecenter Colombia, MDF Trupan 15 mm, lámina 1830 x 2440 mm',
+    priceNote: 'Precio de referencia observado: COP 134.900 por lámina.',
   ),
   Material(
     id: 'mdf_18',
@@ -22,8 +24,10 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     thicknessesMm: [18],
     sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 18500000,
+    priceCents: 16990000,
     edgeBandingPricePerMeterCents: 120000,
+    priceSource: 'Estimación basada en tableros MDF crudos de venta minorista',
+    priceNote: 'Confirmar precio y formato con el proveedor local.',
   ),
   Material(
     id: 'mdf_25',
@@ -32,8 +36,9 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     thicknessesMm: [25],
     sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 24000000,
+    priceCents: 24990000,
     edgeBandingPricePerMeterCents: 120000,
+    priceSource: 'Estimación editable para tablero MDF 25 mm',
   ),
   Material(
     id: 'mdf_5',
@@ -42,28 +47,34 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     thicknessesMm: [5],
     sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 9500000,
+    priceCents: 7990000,
+    priceSource: 'Referencia Homecenter para tablero de fondo MDF 2,8 mm',
+    priceNote: 'El valor de 5 mm es estimado; validar en tienda.',
   ),
   Material(
     id: 'particleboard_18',
     name: 'Aglomerado 18 mm',
     category: MaterialCategory.particleboard,
     thicknessesMm: [18],
-    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 2150),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 16000000,
+    priceCents: 31720100,
     edgeBandingPricePerMeterCents: 120000,
+    priceSource: 'Madecentro online, melamina 2,15 x 2,44 m',
+    priceNote:
+        'Referencia desde COP 317.201; el color y marca cambian el precio.',
   ),
   Material(
     id: 'plywood_18',
     name: 'Triplex 18 mm',
     category: MaterialCategory.plywood,
     thicknessesMm: [18],
-    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1220),
     priceUnit: PriceUnit.perSheet,
-    priceCents: 21000000,
+    priceCents: 24990000,
     hasGrain: true,
     edgeBandingPricePerMeterCents: 120000,
+    priceSource: 'Estimación editable para triplex 18 mm',
   ),
   Material(
     id: 'solid_wood_60',
@@ -73,6 +84,7 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     priceUnit: PriceUnit.perUnit,
     priceCents: 4800000,
     hasGrain: true,
+    priceSource: 'Estimación editable por pieza de madera maciza',
   ),
   Material(
     id: 'pvc_edge',
@@ -81,5 +93,6 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     thicknessesMm: [0.4],
     priceUnit: PriceUnit.perLinearMeter,
     priceCents: 120000,
+    priceSource: 'Referencia editable de canto PVC por metro lineal',
   ),
 ]);

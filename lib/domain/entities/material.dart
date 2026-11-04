@@ -70,6 +70,8 @@ class Material {
 
   /// Precio del canto en centavos por metro lineal.
   final int? edgeBandingPricePerMeterCents;
+  final String? priceSource;
+  final String? priceNote;
 
   const Material({
     required this.id,
@@ -81,7 +83,36 @@ class Material {
     this.sheetSize,
     this.hasGrain = false,
     this.edgeBandingPricePerMeterCents,
+    this.priceSource,
+    this.priceNote,
   });
+
+  Material copyWith({
+    String? id,
+    String? name,
+    MaterialCategory? category,
+    List<double>? thicknessesMm,
+    SheetSize? sheetSize,
+    PriceUnit? priceUnit,
+    int? priceCents,
+    bool? hasGrain,
+    int? edgeBandingPricePerMeterCents,
+    String? priceSource,
+    String? priceNote,
+  }) => Material(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    category: category ?? this.category,
+    thicknessesMm: thicknessesMm ?? this.thicknessesMm,
+    sheetSize: sheetSize ?? this.sheetSize,
+    priceUnit: priceUnit ?? this.priceUnit,
+    priceCents: priceCents ?? this.priceCents,
+    hasGrain: hasGrain ?? this.hasGrain,
+    edgeBandingPricePerMeterCents:
+        edgeBandingPricePerMeterCents ?? this.edgeBandingPricePerMeterCents,
+    priceSource: priceSource ?? this.priceSource,
+    priceNote: priceNote ?? this.priceNote,
+  );
 
   String get thicknessLabel => thicknessesMm
       .map((value) => value.toStringAsFixed(value % 1 == 0 ? 0 : 1))

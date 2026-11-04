@@ -28,3 +28,20 @@ String formatMeters(double value) =>
 /// Devuelve "1 pieza" o "2 piezas" según corresponda.
 String countLabel(int count, String singular, String plural) =>
     '$count ${count == 1 ? singular : plural}';
+
+/// Formatea centavos como pesos colombianos sin centavos visibles.
+String formatMoney(int cents, {String currency = 'COP'}) {
+  final pesos = (cents / 100).round();
+  final digits = pesos.abs().toString();
+  final grouped = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) {
+      grouped.write('.');
+    }
+    grouped.write(digits[index]);
+  }
+  final sign = pesos < 0 ? '-' : '';
+  return currency == 'COP'
+      ? '$sign\$ ${grouped.toString()}'
+      : '$currency $sign${grouped.toString()}';
+}

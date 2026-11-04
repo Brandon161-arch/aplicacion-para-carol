@@ -64,6 +64,60 @@ void main() {
       expect(point.y, closeTo(300, 0.01));
     });
 
+    test('convierte el puntero al plano horizontal para mover piezas', () {
+      const camera = OrbitCamera(
+        yaw: 0.35,
+        pitch: 0.3,
+        distance: 500,
+        target: Vector3(50, 50, 50),
+      );
+      final point = projector.screenToPlane(
+        screenX: 400,
+        screenY: 300,
+        camera: camera,
+        viewportWidth: 800,
+        viewportHeight: 600,
+        planeY: 50,
+      );
+
+      expect(point, isNotNull);
+      expect(point!.x, closeTo(50, 0.01));
+      expect(point.y, closeTo(50, 0.01));
+      expect(point.z, closeTo(50, 0.01));
+    });
+
+    test('selecciona la pieza visible bajo el puntero', () {
+      const camera = OrbitCamera(
+        yaw: 0.35,
+        pitch: 0.3,
+        distance: 500,
+        target: Vector3(50, 50, 50),
+      );
+
+      expect(
+        projector.pickPart(
+          furniture: _cube,
+          camera: camera,
+          viewportWidth: 800,
+          viewportHeight: 600,
+          screenX: 400,
+          screenY: 300,
+        ),
+        'cube_part',
+      );
+      expect(
+        projector.pickPart(
+          furniture: _cube,
+          camera: camera,
+          viewportWidth: 800,
+          viewportHeight: 600,
+          screenX: 5,
+          screenY: 5,
+        ),
+        isNull,
+      );
+    });
+
     test('solo devuelve caras visibles y ordenadas de lejos a cerca', () {
       const camera = OrbitCamera(
         yaw: 0.35,

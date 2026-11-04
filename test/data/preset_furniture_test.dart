@@ -7,7 +7,7 @@ void main() {
   final presets = buildPresetFurniture();
 
   test('hay al menos seis modelos de ejemplo con identificadores únicos', () {
-    expect(presets.length, greaterThanOrEqualTo(6));
+    expect(presets.length, greaterThanOrEqualTo(12));
     expect(presets.map((preset) => preset.id).toSet().length, presets.length);
   });
 

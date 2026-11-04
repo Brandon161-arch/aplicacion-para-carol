@@ -14,6 +14,7 @@ class CutListItem {
   final String materialName;
   final GrainDirection grain;
   final Set<PanelEdge> bandedEdges;
+  final Set<String> bandingMaterialIds;
 
   /// Área total de corte de la fila (todas las unidades).
   final double areaM2;
@@ -31,6 +32,7 @@ class CutListItem {
     required this.materialName,
     required this.grain,
     required this.bandedEdges,
+    required this.bandingMaterialIds,
     required this.areaM2,
     required this.bandingLengthM,
   });
@@ -88,6 +90,9 @@ class CutListCalculator {
         materialName: materialName,
         grain: representative.grain,
         bandedEdges: representative.edgeBanding.keys.toSet(),
+        bandingMaterialIds: representative.edgeBanding.values
+            .map((banding) => banding.materialId)
+            .toSet(),
         areaM2: group.areaM2,
         bandingLengthM: group.bandingLengthMm / 1000,
       );

@@ -63,9 +63,6 @@ class _Viewer3DState extends State<Viewer3D> {
   void didUpdateWidget(covariant Viewer3D oldWidget) {
     super.didUpdateWidget(oldWidget);
     _distance = _distance.clamp(_minDistance, _maxDistance).toDouble();
-    if (widget.selectedPartId != oldWidget.selectedPartId) {
-      _draggingPart = null;
-    }
   }
 
   double get _fitDistance =>
@@ -95,16 +92,18 @@ class _Viewer3DState extends State<Viewer3D> {
     });
   }
 
-  void _handleScaleStart(ScaleStartDetails details) {
-    final viewport = context.size;
+  void _handleScaleStart(
+    ScaleStartDetails details,
+    OrbitCamera camera,
+    Size viewport,
+  ) {
     if (widget.moveMode &&
-        viewport != null &&
         details.pointerCount <= 1 &&
         widget.onPartMoved != null) {
       const projector = SceneProjector();
       final partId = projector.pickPart(
         furniture: widget.furniture,
-        camera: _camera,
+        camera: camera,
         viewportWidth: viewport.width,
         viewportHeight: viewport.height,
         screenX: details.localFocalPoint.dx,
@@ -117,7 +116,7 @@ class _Viewer3DState extends State<Viewer3D> {
           final startPoint = projector.screenToPlane(
             screenX: details.localFocalPoint.dx,
             screenY: details.localFocalPoint.dy,
-            camera: _camera,
+            camera: camera,
             viewportWidth: viewport.width,
             viewportHeight: viewport.height,
             planeY: planeY,
@@ -142,23 +141,24 @@ class _Viewer3DState extends State<Viewer3D> {
     _startFocal = details.localFocalPoint;
   }
 
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
+  void _handleScaleUpdate(
+    ScaleUpdateDetails details,
+    OrbitCamera camera,
+    Size viewport,
+  ) {
     final draggingPart = _draggingPart;
     final startPosition = _dragStartPosition;
     final startPlanePoint = _dragStartPlanePoint;
     final planeY = _dragPlaneY;
-    final viewport = context.size;
-
     if (draggingPart != null &&
         startPosition != null &&
         startPlanePoint != null &&
         planeY != null &&
-        viewport != null &&
         widget.onPartMoved != null) {
       final current = const SceneProjector().screenToPlane(
         screenX: details.localFocalPoint.dx,
         screenY: details.localFocalPoint.dy,
-        camera: _camera,
+        camera: camera,
         viewportWidth: viewport.width,
         viewportHeight: viewport.height,
         planeY: planeY,
@@ -224,78 +224,85 @@ class _Viewer3DState extends State<Viewer3D> {
     final size = widget.furniture.overallSize;
     final camera = _camera;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        MouseRegion(
-          cursor: widget.moveMode
-              ? SystemMouseCursors.move
-              : SystemMouseCursors.grab,
-          child: Listener(
-            onPointerSignal: _handleScroll,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onDoubleTap: _resetView,
-              onScaleStart: _handleScaleStart,
-              onScaleUpdate: _handleScaleUpdate,
-              onScaleEnd: _handleScaleEnd,
-              child: CustomPaint(
-                painter: ScenePainter(
-                  furniture: widget.furniture,
-                  camera: camera,
-                  selectedPartId: widget.selectedPartId,
-                  showBounds: widget.showBounds,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            MouseRegion(
+              cursor: widget.moveMode
+                  ? SystemMouseCursors.move
+                  : SystemMouseCursors.grab,
+              child: Listener(
+                onPointerSignal: _handleScroll,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: _resetView,
+                  onScaleStart: (details) =>
+                      _handleScaleStart(details, camera, viewport),
+                  onScaleUpdate: (details) =>
+                      _handleScaleUpdate(details, camera, viewport),
+                  onScaleEnd: _handleScaleEnd,
+                  child: CustomPaint(
+                    painter: ScenePainter(
+                      furniture: widget.furniture,
+                      camera: camera,
+                      selectedPartId: widget.selectedPartId,
+                      showBounds: widget.showBounds,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
-          ),
-        ),
-        Positioned(
-          top: 10,
-          right: 10,
-          child: Material(
-            color: Colors.white.withValues(alpha: 0.12),
-            shape: const CircleBorder(),
-            child: IconButton(
-              tooltip: 'Restablecer vista',
-              color: Colors.white,
-              onPressed: _resetView,
-              icon: const Icon(Icons.center_focus_strong, size: 20),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 14,
-          bottom: 12,
-          child: IgnorePointer(
-            child: Text(
-              widget.moveMode
-                  ? 'Arrastra una pieza para moverla · fondo para rotar'
-                  : 'Arrastra para rotar · rueda o pinza para zoom',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 11.5,
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.12),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'Restablecer vista',
+                  color: Colors.white,
+                  onPressed: _resetView,
+                  icon: const Icon(Icons.center_focus_strong, size: 20),
+                ),
               ),
             ),
-          ),
-        ),
-        Positioned(
-          right: 14,
-          bottom: 10,
-          child: IgnorePointer(
-            child: Text(
-              '${formatMm(size.width)} × ${formatMm(size.height)} × ${formatMm(size.depth)} mm',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            Positioned(
+              left: 14,
+              bottom: 12,
+              child: IgnorePointer(
+                child: Text(
+                  widget.moveMode
+                      ? 'Arrastra una pieza para moverla · fondo para rotar'
+                      : 'Arrastra para rotar · rueda o pinza para zoom',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 11.5,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+            Positioned(
+              right: 14,
+              bottom: 10,
+              child: IgnorePointer(
+                child: Text(
+                  '${formatMm(size.width)} × ${formatMm(size.height)} × ${formatMm(size.depth)} mm',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

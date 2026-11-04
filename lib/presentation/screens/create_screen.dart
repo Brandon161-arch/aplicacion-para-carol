@@ -75,6 +75,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         }
       }
     }
+    final selected = selectedPart;
 
     void selectPart(String id) => setState(() => _selectedPartId = id);
 
@@ -698,34 +699,28 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     onNew: confirmNewModel,
                   ),
                   const SizedBox(height: 18),
-                  if (selectedPart != null) ...[
+                  if (selected != null) ...[
                     _SelectedPartBar(
-                      part: selectedPart,
-                      onEdit: () => addPart(initial: selectedPart),
-                      onFloor: () => updatePartPosition(selectedPart!, y: 0),
+                      part: selected,
+                      onEdit: () => addPart(initial: selected),
+                      onFloor: () => updatePartPosition(selected, y: 0),
                       onUp: () => updatePartPosition(
-                        selectedPart!,
-                        y: selectedPart!.position.y + 10,
+                        selected,
+                        y: selected.position.y + 10,
                       ),
                       onDown: () => updatePartPosition(
-                        selectedPart!,
-                        y: selectedPart!.position.y - 10,
+                        selected,
+                        y: selected.position.y - 10,
                       ),
                       onCenterX: () => updatePartPosition(
-                        selectedPart!,
-                        x:
-                            (draft.overallSize.width -
-                                selectedPart!.size.width) /
-                            2,
+                        selected,
+                        x: (draft.overallSize.width - selected.size.width) / 2,
                       ),
                       onCenterZ: () => updatePartPosition(
-                        selectedPart!,
-                        z:
-                            (draft.overallSize.depth -
-                                selectedPart!.size.depth) /
-                            2,
+                        selected,
+                        z: (draft.overallSize.depth - selected.size.depth) / 2,
                       ),
-                      onDelete: () => confirmDelete(selectedPart!),
+                      onDelete: () => confirmDelete(selected),
                       onClose: () => setState(() => _selectedPartId = null),
                     ),
                     const SizedBox(height: 14),
