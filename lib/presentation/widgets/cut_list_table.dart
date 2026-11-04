@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/units.dart';
+import '../../domain/entities/material.dart';
 import '../../domain/services/cut_list_calculator.dart';
 import '../painters/part_palette.dart';
-import '../providers/designer_providers.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
 
-class CutListTable extends ConsumerWidget {
-  const CutListTable({super.key});
+class CutListTable extends StatelessWidget {
+  final CutList cutList;
+  final MaterialCatalog catalog;
+  final void Function(CutListItem item)? onItemTap;
+
+  const CutListTable({
+    super.key,
+    required this.cutList,
+    required this.catalog,
+    this.onItemTap,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cutList = ref.watch(cutListProvider);
-    final catalog = ref.watch(materialCatalogProvider);
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -24,7 +30,9 @@ class CutListTable extends ConsumerWidget {
         Text('Despiece', style: theme.textTheme.titleLarge),
         const SizedBox(height: 2),
         Text(
-          'Medidas de corte exactas y cantidades agrupadas.',
+          onItemTap == null
+              ? 'Medidas de corte exactas y cantidades agrupadas.'
+              : 'Toca una fila para ver la pieza en 3D y su plantilla.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -35,11 +43,11 @@ class CutListTable extends ConsumerWidget {
     final chips = [
       StatChip(
         icon: Icons.format_list_numbered,
-        label: '${cutList.items.length} filas',
+        label: countLabel(cutList.items.length, 'fila', 'filas'),
       ),
       StatChip(
         icon: Icons.widgets_outlined,
-        label: '${cutList.totalPieces} piezas',
+        label: countLabel(cutList.totalPieces, 'pieza', 'piezas'),
       ),
       StatChip(
         icon: Icons.square_foot,
@@ -53,7 +61,7 @@ class CutListTable extends ConsumerWidget {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth >= 700) {
+              if (constraints.maxWidth >= 720) {
                 return Row(
                   children: [
                     Expanded(child: title),
@@ -85,8 +93,9 @@ class CutListTable extends ConsumerWidget {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 980),
+                  constraints: const BoxConstraints(minWidth: 1010),
                   child: DataTable(
+                    showCheckboxColumn: false,
                     headingRowHeight: 44,
                     dataRowMinHeight: 42,
                     dataRowMaxHeight: 48,
@@ -107,10 +116,14 @@ class CutListTable extends ConsumerWidget {
                       DataColumn(label: Text('Veta')),
                       DataColumn(label: Text('Cantos'), numeric: true),
                       DataColumn(label: Text('Área m²'), numeric: true),
+                      DataColumn(label: Text('Ver')),
                     ],
                     rows: [
                       for (final item in cutList.items)
                         DataRow(
+                          onSelectChanged: onItemTap == null
+                              ? null
+                              : (_) => onItemTap!(item),
                           cells: [
                             DataCell(
                               Row(
@@ -154,6 +167,17 @@ class CutListTable extends ConsumerWidget {
                               ),
                             ),
                             DataCell(Text(formatM2(item.areaM2))),
+                            DataCell(
+                              Icon(
+                                onItemTap == null
+                                    ? Icons.remove
+                                    : Icons.visibility_outlined,
+                                size: 18,
+                                color: onItemTap == null
+                                    ? scheme.outline
+                                    : scheme.primary,
+                              ),
+                            ),
                           ],
                         ),
                     ],
@@ -168,10 +192,13 @@ class CutListTable extends ConsumerWidget {
             runSpacing: 8,
             children: [
               for (final entry in cutList.areaByMaterial.entries)
-                StatChip(
-                  icon: Icons.layers_outlined,
-                  label:
-                      '${catalog.byId(entry.key)?.name ?? entry.key}: ${formatM2(entry.value)} m²',
+                Tooltip(
+                  message: catalog.byId(entry.key)?.name ?? entry.key,
+                  child: StatChip(
+                    icon: Icons.layers_outlined,
+                    label:
+                        '${_shortMaterialName(entry.key)}: ${formatM2(entry.value)} m²',
+                  ),
                 ),
             ],
           ),
@@ -191,5 +218,10 @@ class CutListTable extends ConsumerWidget {
     if (item.bandedEdgeCount == 0) return '—';
     if (item.bandedEdgeCount == 1) return '1 lado';
     return '${item.bandedEdgeCount} lados';
+  }
+
+  String _shortMaterialName(String id) {
+    final name = catalog.byId(id)?.name ?? id;
+    return name.split(' (').first.replaceAll(' mm', '');
   }
 }

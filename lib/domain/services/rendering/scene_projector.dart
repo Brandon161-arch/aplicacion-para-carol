@@ -256,6 +256,64 @@ class SceneProjector {
     return _projectPoint(point, basis);
   }
 
+  /// Devuelve la pieza visible bajo el puntero, o null si se tocó el fondo.
+  String? pickPart({
+    required Furniture furniture,
+    required OrbitCamera camera,
+    required double viewportWidth,
+    required double viewportHeight,
+    required double screenX,
+    required double screenY,
+  }) {
+    final result = project(
+      furniture: furniture,
+      camera: camera,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+    );
+    // Las caras vienen ordenadas de lejos a cerca; al revés se prueba
+    // primero lo que está más cerca de la cámara.
+    for (final face in result.faces.reversed) {
+      if (!_pointInPolygon(screenX, screenY, face.points)) continue;
+      return face.partId;
+    }
+    return null;
+  }
+
+  /// Convierte un punto de pantalla en un punto del plano horizontal y = [planeY].
+  Vector3? screenToPlane({
+    required double screenX,
+    required double screenY,
+    required OrbitCamera camera,
+    required double viewportWidth,
+    required double viewportHeight,
+    required double planeY,
+  }) {
+    final basis = _buildBasis(camera, viewportWidth, viewportHeight);
+    final cameraX = (screenX - viewportWidth / 2) / basis.focalPixels;
+    final cameraY = -(screenY - viewportHeight / 2) / basis.focalPixels;
+    final direction =
+        (basis.right * cameraX + basis.up * cameraY + basis.forward).normalized;
+    if (direction.y.abs() < 0.000001) return null;
+    final t = (planeY - basis.eye.y) / direction.y;
+    if (t <= 0) return null;
+    return basis.eye + direction * t;
+  }
+
+  bool _pointInPolygon(double x, double y, List<ProjectedPoint> points) {
+    var inside = false;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      final xi = points[i].x;
+      final yi = points[i].y;
+      final xj = points[j].x;
+      final yj = points[j].y;
+      final intersects =
+          ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersects) inside = !inside;
+    }
+    return inside;
+  }
+
   bool _isOccluded({
     required Vector3 origin,
     required Vector3 target,

@@ -24,3 +24,7 @@ String formatM2(double value) => value.toStringAsFixed(3).replaceAll('.', ',');
 /// Formatea una longitud en metros con dos decimales.
 String formatMeters(double value) =>
     value.toStringAsFixed(2).replaceAll('.', ',');
+
+/// Devuelve "1 pieza" o "2 piezas" según corresponda.
+String countLabel(int count, String singular, String plural) =>
+    '$count ${count == 1 ? singular : plural}';

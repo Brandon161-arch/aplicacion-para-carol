@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../presentation/screens/designer_screen.dart';
+import '../presentation/screens/app_shell.dart';
 import 'theme/app_theme.dart';
 
 class MuebleCadApp extends StatelessWidget {
@@ -12,7 +12,7 @@ class MuebleCadApp extends StatelessWidget {
       title: 'MuebleCAD',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const DesignerScreen(),
+      home: const AppShell(),
     );
   }
 }

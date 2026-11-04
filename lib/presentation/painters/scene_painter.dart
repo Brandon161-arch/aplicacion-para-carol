@@ -10,8 +10,15 @@ import 'part_palette.dart';
 class ScenePainter extends CustomPainter {
   final Furniture furniture;
   final OrbitCamera camera;
+  final String? selectedPartId;
+  final bool showBounds;
 
-  const ScenePainter({required this.furniture, required this.camera});
+  const ScenePainter({
+    required this.furniture,
+    required this.camera,
+    this.selectedPartId,
+    this.showBounds = true,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -27,6 +34,7 @@ class ScenePainter extends CustomPainter {
     canvas.drawRect(backgroundRect, background);
 
     _drawFloorGrid(canvas, size);
+    if (showBounds) _drawOverallBounds(canvas, size);
 
     final projection = const SceneProjector().project(
       furniture: furniture,
@@ -40,6 +48,10 @@ class ScenePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8
       ..color = const Color(0x33000000);
+    final selectedStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..color = const Color(0xFFFFB74D);
 
     for (final face in projection.faces) {
       if (face.points.length < 3) continue;
@@ -51,7 +63,72 @@ class ScenePainter extends CustomPainter {
 
       fillPaint.color = _shade(partColor(face.kind), face.shade);
       canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, strokePaint);
+      canvas.drawPath(
+        path,
+        face.partId == selectedPartId ? selectedStroke : strokePaint,
+      );
+    }
+  }
+
+  void _drawOverallBounds(Canvas canvas, Size size) {
+    final width = furniture.overallSize.width;
+    final height = furniture.overallSize.height;
+    final depth = furniture.overallSize.depth;
+    const projector = SceneProjector();
+
+    final corners = <Vector3>[
+      const Vector3(0, 0, 0),
+      Vector3(width, 0, 0),
+      Vector3(width, height, 0),
+      Vector3(0, height, 0),
+      Vector3(0, 0, depth),
+      Vector3(width, 0, depth),
+      Vector3(width, height, depth),
+      Vector3(0, height, depth),
+    ];
+    final projected = [
+      for (final corner in corners)
+        projector.projectPoint(
+          point: corner,
+          camera: camera,
+          viewportWidth: size.width,
+          viewportHeight: size.height,
+        ),
+    ];
+
+    final linePaint = Paint()
+      ..color = const Color(0x2EFFFFFF)
+      ..strokeWidth = 1.0;
+    final floorPaint = Paint()
+      ..color = const Color(0x55FFFFFF)
+      ..strokeWidth = 1.2;
+
+    void drawEdge(int a, int b, Paint paint) {
+      final start = projected[a];
+      final end = projected[b];
+      if (start == null || end == null) return;
+      canvas.drawLine(Offset(start.x, start.y), Offset(end.x, end.y), paint);
+    }
+
+    const edges = [
+      (0, 1),
+      (1, 2),
+      (2, 3),
+      (3, 0),
+      (4, 5),
+      (5, 6),
+      (6, 7),
+      (7, 4),
+      (0, 4),
+      (1, 5),
+      (2, 6),
+      (3, 7),
+    ];
+    for (final edge in edges) {
+      drawEdge(edge.$1, edge.$2, linePaint);
+    }
+    for (final edge in const [(0, 1), (1, 5), (5, 4), (4, 0)]) {
+      drawEdge(edge.$1, edge.$2, floorPaint);
     }
   }
 
@@ -106,5 +183,7 @@ class ScenePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ScenePainter oldDelegate) =>
       oldDelegate.camera != camera ||
+      oldDelegate.selectedPartId != selectedPartId ||
+      oldDelegate.showBounds != showBounds ||
       !identical(oldDelegate.furniture, furniture);
 }

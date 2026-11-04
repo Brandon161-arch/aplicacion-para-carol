@@ -101,6 +101,30 @@ class Part {
     this.structural = true,
   });
 
+  Part copyWith({
+    String? id,
+    String? name,
+    PartKind? kind,
+    Size3? size,
+    CutSize? cutSize,
+    String? materialId,
+    Vector3? position,
+    GrainDirection? grain,
+    Map<PanelEdge, EdgeBanding>? edgeBanding,
+    bool? structural,
+  }) => Part(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    kind: kind ?? this.kind,
+    size: size ?? this.size,
+    cutSize: cutSize ?? this.cutSize,
+    materialId: materialId ?? this.materialId,
+    position: position ?? this.position,
+    grain: grain ?? this.grain,
+    edgeBanding: edgeBanding ?? this.edgeBanding,
+    structural: structural ?? this.structural,
+  );
+
   Vector3 get center => Vector3(
     position.x + size.width / 2,
     position.y + size.height / 2,

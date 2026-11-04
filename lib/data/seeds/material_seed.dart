@@ -66,6 +66,15 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     edgeBandingPricePerMeterCents: 120000,
   ),
   Material(
+    id: 'solid_wood_60',
+    name: 'Madera maciza 60 mm',
+    category: MaterialCategory.solidWood,
+    thicknessesMm: [60],
+    priceUnit: PriceUnit.perUnit,
+    priceCents: 4800000,
+    hasGrain: true,
+  ),
+  Material(
     id: 'pvc_edge',
     name: 'Canto PVC 0,4 mm',
     category: MaterialCategory.other,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/units.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
 import '../painters/part_palette.dart';
@@ -10,11 +11,21 @@ import 'viewer_3d.dart';
 class ViewerCard extends StatelessWidget {
   final Furniture furniture;
   final double viewerHeight;
+  final Widget? headerAction;
+  final bool moveMode;
+  final String? selectedPartId;
+  final ValueChanged<String>? onPartSelected;
+  final ValueChanged<Part>? onPartMoved;
 
   const ViewerCard({
     super.key,
     required this.furniture,
     this.viewerHeight = 460,
+    this.headerAction,
+    this.moveMode = false,
+    this.selectedPartId,
+    this.onPartSelected,
+    this.onPartMoved,
   });
 
   @override
@@ -35,7 +46,9 @@ class ViewerCard extends StatelessWidget {
                       Text('Vista 3D', style: theme.textTheme.titleLarge),
                       const SizedBox(height: 2),
                       Text(
-                        'Mueble armado · arrastra para rotar',
+                        moveMode
+                            ? 'Mueble armado · arrastra una pieza para moverla'
+                            : 'Mueble armado · arrastra para rotar',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -43,9 +56,13 @@ class ViewerCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (headerAction != null) ...[
+                  headerAction!,
+                  const SizedBox(width: 8),
+                ],
                 StatChip(
                   icon: Icons.view_in_ar_outlined,
-                  label: '${furniture.parts.length} piezas',
+                  label: countLabel(furniture.parts.length, 'pieza', 'piezas'),
                 ),
               ],
             ),
@@ -56,7 +73,13 @@ class ViewerCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: SizedBox(
                 height: viewerHeight,
-                child: Viewer3D(furniture: furniture),
+                child: Viewer3D(
+                  furniture: furniture,
+                  moveMode: moveMode,
+                  selectedPartId: selectedPartId,
+                  onPartSelected: onPartSelected,
+                  onPartMoved: onPartMoved,
+                ),
               ),
             ),
           ),
