@@ -1,0 +1,76 @@
+import '../../domain/entities/material.dart';
+
+/// Catálogo inicial de materiales de la Fase 1.
+///
+/// Los precios son de referencia y se podrán editar/conectar a una fuente de
+/// mercado en la fase de costos.
+const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
+  Material(
+    id: 'mdf_15',
+    name: 'MDF 15 mm',
+    category: MaterialCategory.mdf,
+    thicknessesMm: [15],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 15500000,
+    edgeBandingPricePerMeterCents: 120000,
+  ),
+  Material(
+    id: 'mdf_18',
+    name: 'MDF 18 mm',
+    category: MaterialCategory.mdf,
+    thicknessesMm: [18],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 18500000,
+    edgeBandingPricePerMeterCents: 120000,
+  ),
+  Material(
+    id: 'mdf_25',
+    name: 'MDF 25 mm',
+    category: MaterialCategory.mdf,
+    thicknessesMm: [25],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 24000000,
+    edgeBandingPricePerMeterCents: 120000,
+  ),
+  Material(
+    id: 'mdf_5',
+    name: 'MDF 5 mm (fondos)',
+    category: MaterialCategory.mdf,
+    thicknessesMm: [5],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 9500000,
+  ),
+  Material(
+    id: 'particleboard_18',
+    name: 'Aglomerado 18 mm',
+    category: MaterialCategory.particleboard,
+    thicknessesMm: [18],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 16000000,
+    edgeBandingPricePerMeterCents: 120000,
+  ),
+  Material(
+    id: 'plywood_18',
+    name: 'Triplex 18 mm',
+    category: MaterialCategory.plywood,
+    thicknessesMm: [18],
+    sheetSize: SheetSize(widthMm: 2440, heightMm: 1830),
+    priceUnit: PriceUnit.perSheet,
+    priceCents: 21000000,
+    hasGrain: true,
+    edgeBandingPricePerMeterCents: 120000,
+  ),
+  Material(
+    id: 'pvc_edge',
+    name: 'Canto PVC 0,4 mm',
+    category: MaterialCategory.other,
+    thicknessesMm: [0.4],
+    priceUnit: PriceUnit.perLinearMeter,
+    priceCents: 120000,
+  ),
+]);
