@@ -108,7 +108,7 @@ void main() {
     await tester.tap(find.text('Estados Unidos').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('USD'), findsOneWidget);
+    expect(find.textContaining('USD'), findsWidgets);
     expect(
       tester
           .widget<DropdownButtonFormField<MeasurementUnit>>(
@@ -280,7 +280,7 @@ void main() {
     await tester.tap(editPrices);
     await tester.pumpAndSettle();
 
-    expect(find.text('Precios de referencia'), findsOneWidget);
+    expect(find.text('Precios de Colombia'), findsOneWidget);
     expect(find.text('MDF 18 mm'), findsWidgets);
     expect(find.text('Corte / lámina'), findsOneWidget);
     expect(
@@ -367,7 +367,9 @@ class _TestProjectContextController extends ProjectContextController {
           pricingNote: 'Tarifas de prueba.',
           materialPrices: {},
           hardwarePricesCents: {},
-          cutPriceTiers: [],
+          cutPriceTiers: [
+            CutPriceTier(maxPiecesPerSheet: null, priceCents: 500000),
+          ],
           laborRateCentsPerHour: 0,
         ),
         CountryProfile(

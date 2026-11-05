@@ -5,6 +5,7 @@ class PricingSettings {
 
   /// Si es null, se usan las tarifas de corte por lámina de referencia.
   final int? cutPricePerSheetOverrideCents;
+  final double? taxPercentOverride;
   final int laborRateCentsPerHour;
   final double estimatedLaborHours;
 
@@ -12,6 +13,7 @@ class PricingSettings {
     this.currency = 'COP',
     this.wastePercent = 10,
     this.cutPricePerSheetOverrideCents,
+    this.taxPercentOverride,
     this.laborRateCentsPerHour = 0,
     this.estimatedLaborHours = 0,
   });
@@ -21,6 +23,8 @@ class PricingSettings {
     double? wastePercent,
     int? cutPricePerSheetOverrideCents,
     bool clearCutPriceOverride = false,
+    double? taxPercentOverride,
+    bool clearTaxOverride = false,
     int? laborRateCentsPerHour,
     double? estimatedLaborHours,
   }) => PricingSettings(
@@ -29,6 +33,9 @@ class PricingSettings {
     cutPricePerSheetOverrideCents: clearCutPriceOverride
         ? null
         : cutPricePerSheetOverrideCents ?? this.cutPricePerSheetOverrideCents,
+    taxPercentOverride: clearTaxOverride
+        ? null
+        : taxPercentOverride ?? this.taxPercentOverride,
     laborRateCentsPerHour: laborRateCentsPerHour ?? this.laborRateCentsPerHour,
     estimatedLaborHours: estimatedLaborHours ?? this.estimatedLaborHours,
   );

@@ -433,17 +433,31 @@ class _ModelCard extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final projectContext = ref.watch(projectContextValueProvider);
     final country = projectContext?.country;
+    final pricing = ref.watch(pricingSettingsProvider);
+    final materialCatalog = ref.watch(materialCatalogProvider);
     final estimate = const FurnitureEstimator().calculate(
       furniture: furniture,
-      catalog: ref.watch(materialCatalogProvider),
+      catalog: materialCatalog,
       hardwarePrices: ref.watch(hardwarePriceCatalogProvider),
-      pricingSettings: ref.watch(pricingSettingsProvider),
-      taxPercent: country?.standardTaxPercent ?? 0,
+      pricingSettings: pricing,
+      taxPercent:
+          pricing.taxPercentOverride ?? country?.standardTaxPercent ?? 0,
       kerfMm: projectContext?.kerfMm ?? 3.2,
       cutPriceTiers: country?.cutPriceTiers ?? const [],
       pricingNote: country?.pricingNote ?? 'Precios locales no configurados.',
     );
-    final hasLocalPrices = country?.priceDataAvailable ?? true;
+    final materialPricesComplete = estimate.cutList.items.every((item) {
+      final material = materialCatalog.byId(item.materialId);
+      return material != null && material.priceCents > 0;
+    });
+    final hardwarePricesComplete = estimate.hardware.every(
+      (item) => item.unitPriceCents > 0,
+    );
+    final hasLocalPrices =
+        materialPricesComplete &&
+        hardwarePricesComplete &&
+        (pricing.cutPricePerSheetOverrideCents != null ||
+            (country?.cutPriceTiers.isNotEmpty ?? false));
 
     return Material(
       color: Colors.white,

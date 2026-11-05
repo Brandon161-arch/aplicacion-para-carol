@@ -2,6 +2,7 @@ import '../entities/furniture.dart';
 import '../entities/material.dart';
 import '../entities/part.dart';
 import '../value_objects/cut_size.dart';
+import 'board_nesting_calculator.dart';
 
 /// Fila del despiece. Agrupa piezas físicamente idénticas.
 class CutListItem {
@@ -51,6 +52,7 @@ class CutList {
   final double estimatedCutLengthM;
   final double estimatedKerfLossM2;
   final Map<String, double> kerfLossM2ByMaterial;
+  final NestingResult nesting;
 
   const CutList({
     required this.items,
@@ -62,6 +64,7 @@ class CutList {
     required this.estimatedCutLengthM,
     required this.estimatedKerfLossM2,
     required this.kerfLossM2ByMaterial,
+    required this.nesting,
   });
 }
 
@@ -133,6 +136,22 @@ class CutListCalculator {
       );
     }
 
+    final nesting = const BoardNestingCalculator().calculate(
+      pieces: [
+        for (final part in furniture.parts)
+          NestingPiece(
+            partId: part.id,
+            partName: part.name,
+            materialId: part.materialId,
+            lengthMm: part.cutSize.length,
+            widthMm: part.cutSize.width,
+            grain: part.grain,
+          ),
+      ],
+      catalog: catalog,
+      kerfMm: kerfMm,
+    );
+
     return CutList(
       items: items,
       totalPieces: furniture.parts.length,
@@ -143,6 +162,7 @@ class CutListCalculator {
       estimatedCutLengthM: estimatedCutLengthMm / 1000,
       estimatedKerfLossM2: estimatedCutLengthMm * kerfMm / 1000000,
       kerfLossM2ByMaterial: kerfLossM2ByMaterial,
+      nesting: nesting,
     );
   }
 

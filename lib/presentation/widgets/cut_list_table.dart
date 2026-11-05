@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/constants/units.dart';
 import '../../domain/entities/material.dart';
 import '../../domain/services/cut_list_calculator.dart';
+import '../../domain/services/board_nesting_calculator.dart';
 import '../painters/part_palette.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
@@ -88,7 +91,7 @@ class CutListTable extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Recorrido de corte estimado: ${formatMeters(cutList.estimatedCutLengthM)} m · pérdida por kerf: ${formatM2(cutList.estimatedKerfLossM2)} m². Es una aproximación por perímetros; todavía no es un plano de nesting.',
+            'Kerf ${formatMm(cutList.kerfMm)} mm · recorrido estimado por perímetros: ${formatMeters(cutList.estimatedCutLengthM)} m · pérdida estimada: ${formatM2(cutList.estimatedKerfLossM2)} m². Los mapas siguientes usan un nesting heurístico y deben verificarse con el patrón de corte de tu taller.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -198,6 +201,8 @@ class CutListTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          _BoardNestingMaps(nesting: cutList.nesting),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -235,4 +240,188 @@ class CutListTable extends StatelessWidget {
     final name = catalog.byId(id)?.name ?? id;
     return name.split(' (').first.replaceAll(' mm', '');
   }
+}
+
+class _BoardNestingMaps extends StatelessWidget {
+  final NestingResult nesting;
+
+  const _BoardNestingMaps({required this.nesting});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final materialLayouts = nesting.byMaterial.values
+        .where((result) => result.sheets.isNotEmpty)
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.dashboard_customize_outlined, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Mapas heurísticos de tablero',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+            StatChip(
+              icon: Icons.layers_outlined,
+              label: countLabel(nesting.totalSheets, 'tablero', 'tableros'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (nesting.unplacedPartIds.isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              'Piezas sin ubicar: ${nesting.unplacedPartIds.join(', ')}. Revisa material, tamaño del tablero y veta.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onErrorContainer,
+              ),
+            ),
+          ),
+        if (materialLayouts.isEmpty)
+          Text(
+            'No hay piezas de material en lámina para optimizar.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final material in materialLayouts)
+                  for (final sheet in material.sheets)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: SizedBox(
+                        width: 280,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${material.materialName} · tablero ${sheet.index}/${material.sheetCount}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '${sheet.board.label} · ${(sheet.utilization * 100).toStringAsFixed(1)}% utilizado',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            SizedBox(
+                              width: 280,
+                              height: 190,
+                              child: CustomPaint(
+                                painter: _NestingSheetPainter(sheet),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _NestingSheetPainter extends CustomPainter {
+  final NestingSheet sheet;
+
+  const _NestingSheetPainter(this.sheet);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const inset = 6.0;
+    final boardRect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
+    final scale = math.min(
+      boardRect.width / sheet.board.widthMm,
+      boardRect.height / sheet.board.heightMm,
+    );
+    final renderedWidth = sheet.board.widthMm * scale;
+    final renderedHeight = sheet.board.heightMm * scale;
+    final origin = Offset(
+      (size.width - renderedWidth) / 2,
+      (size.height - renderedHeight) / 2,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(origin.dx, origin.dy, renderedWidth, renderedHeight),
+      Paint()..color = const Color(0xFFF6F3EE),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(origin.dx, origin.dy, renderedWidth, renderedHeight),
+      Paint()
+        ..color = const Color(0xFF61574F)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    const colors = [
+      Color(0xFFB7D7C4),
+      Color(0xFFC6D7E8),
+      Color(0xFFE9D5A5),
+      Color(0xFFE5C3B8),
+    ];
+    for (var index = 0; index < sheet.placements.length; index++) {
+      final placement = sheet.placements[index];
+      final rect = Rect.fromLTWH(
+        origin.dx + placement.xMm * scale,
+        origin.dy + placement.yMm * scale,
+        placement.widthMm * scale,
+        placement.heightMm * scale,
+      );
+      canvas.drawRect(rect, Paint()..color = colors[index % colors.length]);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = const Color(0xFF39433F)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.7,
+      );
+      if (rect.width > 28 && rect.height > 12) {
+        final label = placement.partName.length > 11
+            ? '${placement.partName.substring(0, 10)}…'
+            : placement.partName;
+        final text = TextPainter(
+          text: TextSpan(
+            text: label,
+            style: const TextStyle(fontSize: 8, color: Color(0xFF26332C)),
+          ),
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: rect.width - 2);
+        text.paint(canvas, rect.topLeft + const Offset(2, 2));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NestingSheetPainter oldDelegate) =>
+      oldDelegate.sheet != sheet;
 }

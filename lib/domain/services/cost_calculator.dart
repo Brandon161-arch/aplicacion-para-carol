@@ -9,8 +9,8 @@ import 'cut_list_calculator.dart';
 
 /// Estima compra de material por lámina, cantos, corte y herrajes.
 ///
-/// El cálculo de láminas usa área más kerf y desperdicio; no reemplaza un
-/// nesting optimizado. Precios y rangos se reciben desde el perfil regional.
+/// El cálculo de láminas combina el nesting rectangular heurístico con un
+/// límite inferior por área, kerf y desperdicio. Precios vienen del perfil.
 class CostCalculator {
   const CostCalculator();
 
@@ -42,7 +42,15 @@ class CostCalculator {
           final sheetSize = material.sheetSize;
           if (sheetSize == null || sheetSize.areaM2 <= 0) continue;
           final requiredArea = (area + kerfArea) * (1 + wasteFraction);
-          final sheets = math.max(1, (requiredArea / sheetSize.areaM2).ceil());
+          final areaBasedSheets = math.max(
+            1,
+            (requiredArea / sheetSize.areaM2).ceil(),
+          );
+          final nesting = cutList.nesting.byMaterial[material.id];
+          final nestingLowerBound = nesting == null
+              ? 0
+              : nesting.sheetCount + nesting.unplacedPartIds.length;
+          final sheets = math.max(areaBasedSheets, nestingLowerBound);
           final cost = sheets * material.priceCents;
           final purchasedArea = sheets * sheetSize.areaM2;
           final wasteArea = math.max(0.0, purchasedArea - area);
@@ -73,6 +81,7 @@ class CostCalculator {
               detail:
                   '${area.toStringAsFixed(2)} m² en piezas; $pieces piezas; '
                   'kerf aprox. ${kerfArea.toStringAsFixed(3)} m²; '
+                  'nesting ${nesting?.sheetCount ?? 0} láminas; '
                   'lámina ${sheetSize.widthMm.round()} x ${sheetSize.heightMm.round()} mm',
             ),
           );
@@ -270,7 +279,7 @@ class CostCalculator {
       estimatedSheets: sheetCountTotal,
       currency: settings.currency,
       pricingNote:
-          '$pricingNote Kerf estimado conservadoramente desde perímetros; láminas por área, sin nesting optimizado.',
+          '$pricingNote Kerf estimado desde perímetros; nesting MaxRects heurístico, no guillotine industrial; confirma el mapa con el taller.',
     );
   }
 

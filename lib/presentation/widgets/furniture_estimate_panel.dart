@@ -27,23 +27,46 @@ class FurnitureEstimatePanel extends ConsumerWidget {
     final pricing = ref.watch(pricingSettingsProvider);
     final projectContext = ref.watch(projectContextValueProvider);
     final country = projectContext?.country;
-    final regionalPricesAvailable = country?.priceDataAvailable ?? true;
     final estimate = const FurnitureEstimator().calculate(
       furniture: furniture,
       catalog: catalog,
       hardwarePrices: hardwarePrices,
       pricingSettings: pricing,
-      taxPercent: country?.standardTaxPercent ?? 0,
+      taxPercent:
+          pricing.taxPercentOverride ?? country?.standardTaxPercent ?? 0,
       kerfMm: projectContext?.kerfMm ?? 3.2,
       cutPriceTiers: country?.cutPriceTiers ?? const [],
       pricingNote: country?.pricingNote ?? 'Precios locales no configurados.',
     );
-    final buildabilityIssues = const ManufacturabilityValidator().validate(
-      furniture: furniture,
-      materials: catalog,
-      boardFormats: country?.boardSizes ?? const [],
-      kerfMm: projectContext?.kerfMm ?? 3.2,
+    final materialPricesComplete = estimate.cutList.items.every((item) {
+      final material = catalog.byId(item.materialId);
+      return material != null && material.priceCents > 0;
+    });
+    final hardwarePricesComplete = estimate.hardware.every(
+      (item) => item.unitPriceCents > 0,
     );
+    final cutPriceConfigured =
+        pricing.cutPricePerSheetOverrideCents != null ||
+        (country?.cutPriceTiers.isNotEmpty ?? false);
+    final regionalPricesAvailable =
+        materialPricesComplete && hardwarePricesComplete && cutPriceConfigured;
+    final buildabilityIssues = [
+      ...const ManufacturabilityValidator().validate(
+        furniture: furniture,
+        materials: catalog,
+        boardFormats: country?.boardSizes ?? const [],
+        kerfMm: projectContext?.kerfMm ?? 3.2,
+      ),
+      if (estimate.cutList.nesting.unplacedPartIds.isNotEmpty)
+        BuildabilityIssue(
+          severity: BuildabilitySeverity.error,
+          code: 'nesting-incomplete',
+          message:
+              '${estimate.cutList.nesting.unplacedPartIds.length} pieza(s) no caben en los mapas actuales de tablero.',
+          suggestion: 'Revisa dimensiones, veta o formato de tablero; el estimador usa una heurística de nesting.',
+          partIds: estimate.cutList.nesting.unplacedPartIds,
+        ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,6 +78,7 @@ class FurnitureEstimatePanel extends ConsumerWidget {
             final hardwareCard = HardwareCard(
               requirements: estimate.hardware,
               showPrices: regionalPricesAvailable,
+              currency: pricing.currency,
             );
             final costCard = CostSummaryCard(
               report: estimate.costs,
@@ -64,6 +88,8 @@ class FurnitureEstimatePanel extends ConsumerWidget {
                 ? costCard
                 : _RegionalCostUnavailableCard(
                     countryName: country?.name ?? 'este país',
+                    currency: country?.currency ?? '',
+                    onEditPrices: () => showPricingEditorDialog(context, ref),
                   );
             if (constraints.maxWidth >= 1100) {
               return Row(
@@ -176,11 +202,13 @@ class _BuildabilityCard extends StatelessWidget {
 class HardwareCard extends StatelessWidget {
   final List<HardwareRequirement> requirements;
   final bool showPrices;
+  final String currency;
 
   const HardwareCard({
     super.key,
     required this.requirements,
     this.showPrices = true,
+    this.currency = 'COP',
   });
 
   @override
@@ -235,6 +263,7 @@ class HardwareCard extends StatelessWidget {
               _HardwareRow(
                 requirement: requirements[index],
                 showPrices: showPrices,
+                currency: currency,
               ),
               if (index < requirements.length - 1) const Divider(height: 14),
             ],
@@ -256,8 +285,13 @@ class HardwareCard extends StatelessWidget {
 class _HardwareRow extends StatelessWidget {
   final HardwareRequirement requirement;
   final bool showPrices;
+  final String currency;
 
-  const _HardwareRow({required this.requirement, required this.showPrices});
+  const _HardwareRow({
+    required this.requirement,
+    required this.showPrices,
+    required this.currency,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -336,7 +370,7 @@ class _HardwareRow extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    formatMoney(requirement.totalPriceCents),
+                    formatMoney(requirement.totalPriceCents, currency: currency),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -439,26 +473,42 @@ class CostSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          for (final line in materialLines) _CostLineRow(line: line),
+          for (final line in materialLines)
+            _CostLineRow(line: line, currency: report.currency),
           const Divider(height: 16),
-          _SummaryLine(label: 'Cantos', cents: report.edgeBandingTotalCents),
+          _SummaryLine(
+            label: 'Cantos',
+            cents: report.edgeBandingTotalCents,
+            currency: report.currency,
+          ),
           _SummaryLine(
             label: 'Servicio de corte',
             cents: report.cuttingTotalCents,
+            currency: report.currency,
           ),
-          _SummaryLine(label: 'Herrajes', cents: report.hardwareTotalCents),
+          _SummaryLine(
+            label: 'Herrajes',
+            cents: report.hardwareTotalCents,
+            currency: report.currency,
+          ),
           if (report.laborTotalCents > 0)
-            _SummaryLine(label: 'Mano de obra', cents: report.laborTotalCents),
+            _SummaryLine(
+              label: 'Mano de obra',
+              cents: report.laborTotalCents,
+              currency: report.currency,
+            ),
           const Divider(height: 16),
           _SummaryLine(
             label: 'Subtotal de producción',
             cents: report.grandTotalCents,
+            currency: report.currency,
           ),
           if (report.taxPercent > 0)
             _SummaryLine(
               label:
                   'Impuesto local (${report.taxPercent.toStringAsFixed(0)}%)',
               cents: report.taxTotalCents,
+              currency: report.currency,
             ),
           const SizedBox(height: 10),
           Container(
@@ -473,7 +523,7 @@ class CostSummaryCard extends StatelessWidget {
               'kerf ${formatMm(report.kerfMm)} mm, recorrido aprox. ${formatMeters(report.estimatedCutLengthM)} m '
               '(${formatM2(report.estimatedKerfLossM2)} m²) · '
               'desperdicio: ${formatM2(report.estimatedWasteAreaM2)} m² '
-              '(${formatMoney(report.wasteTotalCents)} aprox., incluido en láminas).',
+              '(${formatMoney(report.wasteTotalCents, currency: report.currency)} aprox., incluido en láminas).',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -496,8 +546,14 @@ class CostSummaryCard extends StatelessWidget {
 
 class _RegionalCostUnavailableCard extends StatelessWidget {
   final String countryName;
+  final String currency;
+  final VoidCallback onEditPrices;
 
-  const _RegionalCostUnavailableCard({required this.countryName});
+  const _RegionalCostUnavailableCard({
+    required this.countryName,
+    required this.currency,
+    required this.onEditPrices,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -510,11 +566,17 @@ class _RegionalCostUnavailableCard extends StatelessWidget {
           Text('Precios locales pendientes', style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
-            'La lista de materiales y cantidades sigue disponible, pero aún no hay precios regionales configurados para $countryName. No convertimos referencias COP a otra moneda porque no serían una cotización local.',
+            'La lista de materiales y cantidades sigue disponible, pero faltan precios locales para $countryName ($currency). No convertimos precios de otra moneda.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.4,
             ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onEditPrices,
+            icon: const Icon(Icons.price_change_outlined, size: 18),
+            label: Text('Configurar precios $currency'),
           ),
         ],
       ),
@@ -524,8 +586,9 @@ class _RegionalCostUnavailableCard extends StatelessWidget {
 
 class _CostLineRow extends StatelessWidget {
   final CostLine line;
+  final String currency;
 
-  const _CostLineRow({required this.line});
+  const _CostLineRow({required this.line, required this.currency});
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +629,7 @@ class _CostLineRow extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
               child: Text(
-                formatMoney(line.totalCents),
+                formatMoney(line.totalCents, currency: currency),
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -582,8 +645,13 @@ class _CostLineRow extends StatelessWidget {
 class _SummaryLine extends StatelessWidget {
   final String label;
   final int cents;
+  final String currency;
 
-  const _SummaryLine({required this.label, required this.cents});
+  const _SummaryLine({
+    required this.label,
+    required this.cents,
+    required this.currency,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -599,7 +667,7 @@ class _SummaryLine extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
               child: Text(
-                formatMoney(cents),
+                formatMoney(cents, currency: currency),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),

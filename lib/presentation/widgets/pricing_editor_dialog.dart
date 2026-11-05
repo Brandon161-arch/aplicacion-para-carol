@@ -5,6 +5,7 @@ import '../../domain/entities/material.dart' as domain;
 import '../../domain/entities/hardware_item.dart';
 import '../providers/designer_providers.dart';
 import '../providers/pricing_providers.dart';
+import '../providers/project_context_provider.dart';
 
 Future<void> showPricingEditorDialog(
   BuildContext context,
@@ -18,6 +19,10 @@ Future<void> showPricingEditorDialog(
   }
   if (!context.mounted) return;
 
+  final country = ref.read(projectContextValueProvider)?.country;
+  final countryCode = country?.code ?? 'CO';
+  final currency = country?.currency ?? 'COP';
+  final regionalSettings = pricingData.settingsFor(countryCode);
   final catalog = ref.read(materialCatalogProvider);
   final controllers = <String, TextEditingController>{
     for (final material in catalog.materials)
@@ -33,20 +38,23 @@ Future<void> showPricingEditorDialog(
       ),
   };
   final wasteController = TextEditingController(
-    text: pricingData.settings.wastePercent.toStringAsFixed(0),
+    text: regionalSettings.wastePercent.toStringAsFixed(0),
+  );
+  final taxController = TextEditingController(
+    text: regionalSettings.taxPercentOverride?.toStringAsFixed(2) ?? '',
   );
   final cutController = TextEditingController(
-    text: pricingData.settings.cutPricePerSheetOverrideCents == null
+    text: regionalSettings.cutPricePerSheetOverrideCents == null
         ? ''
-        : (pricingData.settings.cutPricePerSheetOverrideCents! / 100)
+        : (regionalSettings.cutPricePerSheetOverrideCents! / 100)
               .round()
               .toString(),
   );
   final laborRateController = TextEditingController(
-    text: (pricingData.settings.laborRateCentsPerHour / 100).round().toString(),
+    text: (regionalSettings.laborRateCentsPerHour / 100).round().toString(),
   );
   final laborHoursController = TextEditingController(
-    text: pricingData.settings.estimatedLaborHours.toStringAsFixed(1),
+    text: regionalSettings.estimatedLaborHours.toStringAsFixed(1),
   );
 
   try {
@@ -62,27 +70,32 @@ Future<void> showPricingEditorDialog(
               Future<void> save() async {
                 final overrides = <String, int>{};
                 for (final material in catalog.materials) {
-                  final value = _parseCop(controllers[material.id]!);
+                  final value = _parseCurrency(controllers[material.id]!);
                   if (value != null) overrides[material.id] = value;
                 }
                 final hardwareOverrides = <String, int>{};
                 for (final kind in HardwareKind.values) {
-                  final value = _parseCop(hardwareControllers[kind]!);
+                  final value = _parseCurrency(hardwareControllers[kind]!);
                   if (value != null) hardwareOverrides[kind.name] = value;
                 }
-                final currentSettings = pricingData.settings;
+                final currentSettings = regionalSettings;
                 final settings = currentSettings.copyWith(
                   wastePercent:
                       _parseDouble(wasteController.text) ??
                       currentSettings.wastePercent,
+                  taxPercentOverride: taxController.text.trim().isEmpty
+                      ? null
+                      : _parseDouble(taxController.text) ??
+                            currentSettings.taxPercentOverride,
+                  clearTaxOverride: taxController.text.trim().isEmpty,
                   cutPricePerSheetOverrideCents:
                       cutController.text.trim().isEmpty
                       ? null
-                      : _parseCop(cutController) ??
+                      : _parseCurrency(cutController) ??
                             currentSettings.cutPricePerSheetOverrideCents,
                   clearCutPriceOverride: cutController.text.trim().isEmpty,
                   laborRateCentsPerHour:
-                      _parseCop(laborRateController) ??
+                      _parseCurrency(laborRateController) ??
                       currentSettings.laborRateCentsPerHour,
                   estimatedLaborHours:
                       _parseDouble(laborHoursController.text) ??
@@ -91,6 +104,7 @@ Future<void> showPricingEditorDialog(
                 await ref
                     .read(localPricingProvider.notifier)
                     .updateAll(
+                      countryCode: countryCode,
                       materialPriceOverrides: overrides,
                       hardwarePriceOverrides: hardwareOverrides,
                       settings: settings,
@@ -100,7 +114,9 @@ Future<void> showPricingEditorDialog(
               }
 
               Future<void> reset() async {
-                await ref.read(localPricingProvider.notifier).reset();
+                await ref
+                    .read(localPricingProvider.notifier)
+                    .reset(countryCode: countryCode);
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
               }
@@ -124,11 +140,11 @@ Future<void> showPricingEditorDialog(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Precios de referencia',
+                                'Precios de ${country?.name ?? 'tu región'}',
                                 style: theme.textTheme.titleLarge,
                               ),
                               Text(
-                                'Edita valores en pesos colombianos (COP).',
+                                'Estos importes se guardan para $countryCode y se expresan en $currency.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -160,6 +176,7 @@ Future<void> showPricingEditorDialog(
                             _MaterialPriceRow(
                               material: material,
                               controller: controllers[material.id]!,
+                              currency: currency,
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -180,6 +197,7 @@ Future<void> showPricingEditorDialog(
                             _HardwarePriceRow(
                               kind: kind,
                               controller: hardwareControllers[kind]!,
+                              currency: currency,
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -191,6 +209,12 @@ Future<void> showPricingEditorDialog(
                           const SizedBox(height: 8),
                           LayoutBuilder(
                             builder: (context, constraints) {
+                              final tax = _PriceNumberField(
+                                controller: taxController,
+                                label: 'Impuesto local',
+                                suffix: '%',
+                                helper: 'Vacío = usa la tasa general configurada para el país.',
+                              );
                               final waste = _PriceNumberField(
                                 controller: wasteController,
                                 label: 'Desperdicio',
@@ -199,12 +223,17 @@ Future<void> showPricingEditorDialog(
                               final cut = _PriceNumberField(
                                 controller: cutController,
                                 label: 'Corte / lámina',
-                                suffix: 'COP',
-                                helper: 'Vacío = tarifa de referencia Madecentro por rango de piezas.',
+                                suffix: currency,
+                                helper:
+                                    country?.cutPriceTiers.isNotEmpty == true
+                                    ? 'Vacío = usa los rangos de corte del archivo regional.'
+                                    : 'No hay tarifa regional: ingresa el precio local por lámina.',
                               );
                               if (constraints.maxWidth < 560) {
                                 return Column(
                                   children: [
+                                    tax,
+                                    const SizedBox(height: 10),
                                     waste,
                                     const SizedBox(height: 10),
                                     cut,
@@ -214,6 +243,8 @@ Future<void> showPricingEditorDialog(
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Expanded(child: tax),
+                                  const SizedBox(width: 12),
                                   Expanded(child: waste),
                                   const SizedBox(width: 12),
                                   Expanded(child: cut),
@@ -232,7 +263,7 @@ Future<void> showPricingEditorDialog(
                               final rate = _PriceNumberField(
                                 controller: laborRateController,
                                 label: 'Tarifa por hora',
-                                suffix: 'COP',
+                                suffix: currency,
                               );
                               final hours = _PriceNumberField(
                                 controller: laborHoursController,
@@ -259,7 +290,9 @@ Future<void> showPricingEditorDialog(
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Referencia consultada: Madecentro (tableros melamínicos y tarifas de corte por lámina) y Homecenter (MDF crudo). Los precios pueden variar por ciudad, marca, color, sede e inventario; verifica antes de comprar.',
+                            country?.pricingNote.isNotEmpty == true
+                                ? '${country!.pricingNote} Estos precios son referencias editables, no una cotización en vivo.'
+                                : 'Ingresa precios locales en $currency; no se convierten ni se copian valores de otros países.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
                               height: 1.4,
@@ -279,7 +312,7 @@ Future<void> showPricingEditorDialog(
                       children: [
                         TextButton(
                           onPressed: reset,
-                          child: const Text('Restablecer referencia'),
+                          child: const Text('Restablecer precios locales'),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
@@ -308,6 +341,7 @@ Future<void> showPricingEditorDialog(
       controller.dispose();
     }
     wasteController.dispose();
+    taxController.dispose();
     cutController.dispose();
     laborRateController.dispose();
     laborHoursController.dispose();
@@ -317,8 +351,13 @@ Future<void> showPricingEditorDialog(
 class _MaterialPriceRow extends StatelessWidget {
   final domain.Material material;
   final TextEditingController controller;
+  final String currency;
 
-  const _MaterialPriceRow({required this.material, required this.controller});
+  const _MaterialPriceRow({
+    required this.material,
+    required this.controller,
+    required this.currency,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +395,7 @@ class _MaterialPriceRow extends StatelessWidget {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(labelText: 'Precio COP'),
+                decoration: InputDecoration(labelText: 'Precio $currency'),
               ),
             ],
           );
@@ -372,7 +411,7 @@ class _MaterialPriceRow extends StatelessWidget {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(labelText: 'Precio COP'),
+                decoration: InputDecoration(labelText: 'Precio $currency'),
               ),
             ),
           ],
@@ -385,15 +424,20 @@ class _MaterialPriceRow extends StatelessWidget {
 class _HardwarePriceRow extends StatelessWidget {
   final HardwareKind kind;
   final TextEditingController controller;
+  final String currency;
 
-  const _HardwarePriceRow({required this.kind, required this.controller});
+  const _HardwarePriceRow({
+    required this.kind,
+    required this.controller,
+    required this.currency,
+  });
 
   @override
   Widget build(BuildContext context) {
     final field = TextField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(labelText: 'Precio COP', isDense: true),
+      decoration: InputDecoration(labelText: 'Precio $currency', isDense: true),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -444,7 +488,7 @@ class _PriceNumberField extends StatelessWidget {
   );
 }
 
-int? _parseCop(TextEditingController controller) {
+int? _parseCurrency(TextEditingController controller) {
   final value = double.tryParse(controller.text.trim().replaceAll(',', '.'));
   if (value == null || !value.isFinite || value < 0) return null;
   return (value * 100).round();

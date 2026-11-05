@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/regional_catalog.dart';
 import '../../domain/services/material_recommender.dart';
 import '../../domain/value_objects/measurement_unit.dart';
+import '../providers/designer_providers.dart';
 import '../providers/project_context_provider.dart';
+import 'pricing_editor_dialog.dart';
 import 'surface_card.dart';
 
 class RegionalMaterialPanel extends ConsumerWidget {
@@ -38,6 +40,7 @@ class RegionalMaterialPanel extends ConsumerWidget {
     }
 
     final recommendations = ref.watch(materialRecommendationsProvider);
+    final materialCatalog = ref.watch(materialCatalogProvider);
     final country = project.country;
 
     return SurfaceCard(
@@ -191,7 +194,13 @@ class RegionalMaterialPanel extends ConsumerWidget {
           for (final recommendation in recommendations)
             _RecommendationTile(
               recommendation: recommendation,
-              pricesAvailable: country.priceDataAvailable,
+              priceAvailable:
+                  recommendation.material.catalogMaterialId != null &&
+                  (materialCatalog
+                              .byId(recommendation.material.catalogMaterialId!)
+                              ?.priceCents ??
+                          0) >
+                      0,
             ),
           const SizedBox(height: 6),
           Text(
@@ -199,6 +208,16 @@ class RegionalMaterialPanel extends ConsumerWidget {
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('regional_prices_button'),
+              onPressed: () => showPricingEditorDialog(context, ref),
+              icon: const Icon(Icons.price_change_outlined, size: 18),
+              label: Text('Editar precios ${country.currency}'),
             ),
           ),
         ],
@@ -209,11 +228,11 @@ class RegionalMaterialPanel extends ConsumerWidget {
 
 class _RecommendationTile extends StatelessWidget {
   final MaterialRecommendation recommendation;
-  final bool pricesAvailable;
+  final bool priceAvailable;
 
   const _RecommendationTile({
     required this.recommendation,
-    required this.pricesAvailable,
+    required this.priceAvailable,
   });
 
   @override
@@ -223,8 +242,7 @@ class _RecommendationTile extends StatelessWidget {
     final profile = recommendation.material;
     final pros = profile.pros.join(' · ');
     final cons = profile.cons.join(' · ');
-    final relativeCost =
-        pricesAvailable && recommendation.availableInPriceCatalog
+    final relativeCost = priceAvailable
         ? 'costo ${profile.costBand}'
         : 'costo ${profile.costBand}; precio local por cotizar';
 

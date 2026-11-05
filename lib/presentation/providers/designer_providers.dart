@@ -15,13 +15,12 @@ import 'project_context_provider.dart';
 /// Catálogo de materiales mezclado con los precios editables del usuario.
 final materialCatalogProvider = Provider<MaterialCatalog>((ref) {
   final context = ref.watch(projectContextValueProvider);
-  final overrides =
-      ref.watch(localPricingProvider).asData?.value.materialPriceOverrides ??
-      const <String, int>{};
   final country = context?.country;
-  if (overrides.isEmpty && (country?.materialPrices.isEmpty ?? true)) {
-    return sampleMaterialCatalog;
-  }
+  final localPricing = ref.watch(localPricingProvider).asData?.value;
+  final overrides = country == null
+      ? localPricing?.materialPriceOverrides ?? const <String, int>{}
+      : localPricing?.materialPricesFor(country.code) ?? const <String, int>{};
+  if (overrides.isEmpty && country == null) return sampleMaterialCatalog;
   return MaterialCatalog([
     for (final material in sampleMaterialCatalog.materials)
       () {
@@ -36,12 +35,19 @@ final materialCatalogProvider = Provider<MaterialCatalog>((ref) {
               (country != null && !country.priceDataAvailable
                   ? 0
                   : material.priceCents),
-          sheetSize: regionalPrice?.sheetSize == null
-              ? material.sheetSize
-              : SheetSize(
+          sheetSize: regionalPrice?.sheetSize != null
+              ? SheetSize(
                   widthMm: regionalPrice!.sheetSize!.widthMm,
                   heightMm: regionalPrice.sheetSize!.heightMm,
-                ),
+                )
+              : country != null &&
+                    country.code != 'CO' &&
+                    country.boardSizes.isNotEmpty
+              ? SheetSize(
+                  widthMm: country.boardSizes.first.widthMm,
+                  heightMm: country.boardSizes.first.heightMm,
+                )
+              : material.sheetSize,
           priceSource: regionalPrice?.source ?? material.priceSource,
           priceNote: regionalPrice?.note ?? material.priceNote,
         );

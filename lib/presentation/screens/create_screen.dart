@@ -60,12 +60,23 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     final presets = ref.watch(presetFurnitureProvider);
     final projectContext = ref.watch(projectContextValueProvider);
     final displayUnit = projectContext?.unit ?? MeasurementUnit.millimeter;
-    final buildabilityIssues = const ManufacturabilityValidator().validate(
-      furniture: furniture,
-      materials: catalog,
-      boardFormats: projectContext?.country.boardSizes ?? const [],
-      kerfMm: projectContext?.kerfMm ?? 3.2,
-    );
+    final buildabilityIssues = [
+      ...const ManufacturabilityValidator().validate(
+        furniture: furniture,
+        materials: catalog,
+        boardFormats: projectContext?.country.boardSizes ?? const [],
+        kerfMm: projectContext?.kerfMm ?? 3.2,
+      ),
+      if (cutList.nesting.unplacedPartIds.isNotEmpty)
+        BuildabilityIssue(
+          severity: BuildabilitySeverity.error,
+          code: 'nesting-incomplete',
+          message:
+              '${cutList.nesting.unplacedPartIds.length} pieza(s) no caben en los mapas de tablero.',
+          suggestion: 'Revisa tamaño, orientación o formato de tablero antes de guardar.',
+          partIds: cutList.nesting.unplacedPartIds,
+        ),
+    ];
     final hasBuildabilityErrors = buildabilityIssues.any(
       (issue) => issue.severity == BuildabilitySeverity.error,
     );
