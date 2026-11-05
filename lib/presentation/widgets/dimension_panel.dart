@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/units.dart';
 import '../../domain/entities/furniture_spec.dart';
 import '../../domain/services/furniture_validator.dart';
+import '../../domain/value_objects/measurement_unit.dart';
 import '../providers/designer_providers.dart';
+import '../providers/project_context_provider.dart';
 import 'mm_field.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
@@ -20,6 +22,7 @@ class DimensionPanel extends ConsumerWidget {
     final controller = ref.read(designerProvider.notifier);
     final issues = ref.watch(validationProvider);
     final settings = spec.settings;
+    final unit = ref.watch(projectContextValueProvider)?.unit;
     final theme = Theme.of(context);
     final selectedThickness =
         _thicknessOptions.contains(settings.panelThicknessMm)
@@ -48,6 +51,7 @@ class DimensionPanel extends ConsumerWidget {
                   fieldKey: const Key('width_field'),
                   label: 'Ancho',
                   value: spec.overallSize.width,
+                  unit: unit ?? MeasurementUnit.millimeter,
                   onChanged: (value) =>
                       controller.updateOverallSize(width: value),
                 ),
@@ -58,6 +62,7 @@ class DimensionPanel extends ConsumerWidget {
                   fieldKey: const Key('height_field'),
                   label: 'Alto',
                   value: spec.overallSize.height,
+                  unit: unit ?? MeasurementUnit.millimeter,
                   onChanged: (value) =>
                       controller.updateOverallSize(height: value),
                 ),
@@ -72,6 +77,7 @@ class DimensionPanel extends ConsumerWidget {
                   fieldKey: const Key('depth_field'),
                   label: 'Fondo',
                   value: spec.overallSize.depth,
+                  unit: unit ?? MeasurementUnit.millimeter,
                   onChanged: (value) =>
                       controller.updateOverallSize(depth: value),
                 ),
@@ -82,6 +88,7 @@ class DimensionPanel extends ConsumerWidget {
                   fieldKey: const Key('plinth_field'),
                   label: 'Zócalo',
                   value: settings.plinthHeightMm,
+                  unit: unit ?? MeasurementUnit.millimeter,
                   onChanged: controller.updatePlinthHeight,
                 ),
               ),
@@ -95,6 +102,7 @@ class DimensionPanel extends ConsumerWidget {
                   fieldKey: const Key('drawer_height_field'),
                   label: 'Alto del cajón',
                   value: spec.drawerHeightMm,
+                  unit: unit ?? MeasurementUnit.millimeter,
                   onChanged: controller.updateDrawerHeight,
                 ),
               ),

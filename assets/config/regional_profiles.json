@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "countries": [
+    {
+      "code": "CO",
+      "name": "Colombia",
+      "currency": "COP",
+      "defaultUnit": "mm",
+      "taxName": "IVA",
+      "standardTaxPercent": 19,
+      "taxSource": "DIAN · tarifa general de IVA",
+      "taxUpdatedAt": "2026-11-04",
+      "taxNote": "Tarifa general de referencia; verificar excepciones aplicables.",
+      "boardSizesMm": [[2440, 1830], [2440, 2150], [2440, 1220]],
+      "priceDataAvailable": true,
+      "priceDataNote": "Precios de referencia cargados; editar por ciudad y proveedor.",
+      "pricingNote": "Referencias Madecentro/Homecenter; varían por ciudad, marca, color e inventario. Verifica antes de comprar.",
+      "materialPrices": {
+        "mdf_15": {"priceCents": 13490000, "source": "Homecenter Colombia · MDF Trupan 15 mm", "note": "COP 134.900 por lámina; confirmar stock.", "sheetSizeMm": [2440, 1830]},
+        "mdf_18": {"priceCents": 16990000, "source": "Homecenter Colombia · MDF Trupan 18 mm", "note": "COP 169.900 por lámina; confirmar stock.", "sheetSizeMm": [2440, 1830]},
+        "mdf_25": {"priceCents": 24990000, "source": "Estimación editable · MDF 25 mm", "note": "Precio inicial por verificar.", "sheetSizeMm": [2440, 1830]},
+        "mdf_5": {"priceCents": 7990000, "source": "Homecenter Colombia · tablero MDF delgado", "note": "Precio de 5 mm estimado; validar en tienda.", "sheetSizeMm": [2440, 1830]},
+        "particleboard_18": {"priceCents": 31720100, "source": "Madecentro online · melamina 18 mm", "note": "Referencia desde COP 317.201; color y marca varían.", "sheetSizeMm": [2440, 2150]},
+        "plywood_18": {"priceCents": 24990000, "source": "Estimación editable · triplex 18 mm", "note": "Cotizar según especie, adhesivo y ciudad.", "sheetSizeMm": [2440, 1220]},
+        "solid_wood_60": {"priceCents": 4800000, "source": "Estimación editable · madera maciza", "note": "Precio por unidad de referencia; varía por especie.", "sheetSizeMm": null},
+        "pvc_edge": {"priceCents": 120000, "source": "Referencia editable · canto PVC", "note": "Precio por metro lineal.", "sheetSizeMm": null}
+      },
+      "hardwarePricesCents": {
+        "hinge": 450000, "drawerSlide": 900000, "confirmat": 70000,
+        "screw": 30000, "dowel": 20000, "nail": 5000,
+        "shelfPin": 30000, "handle": 800000, "camLock": 150000,
+        "foot": 250000, "magnet": 100000, "gasStrut": 2500000,
+        "connector": 50000, "glue": 500000
+      },
+      "cutPriceTiers": [
+        {"maxPiecesPerSheet": 25, "priceCents": 535400},
+        {"maxPiecesPerSheet": 35, "priceCents": 815000},
+        {"maxPiecesPerSheet": 50, "priceCents": 1344300},
+        {"maxPiecesPerSheet": 100, "priceCents": 1993100},
+        {"maxPiecesPerSheet": null, "priceCents": 2832500}
+      ],
+      "laborRateCentsPerHour": 0
+    },
+    {
+      "code": "MX",
+      "name": "México",
+      "currency": "MXN",
+      "defaultUnit": "mm",
+      "taxName": "IVA",
+      "standardTaxPercent": 16,
+      "taxSource": "SAT · tasa general de IVA",
+      "taxUpdatedAt": "2026-11-04",
+      "taxNote": "Tarifa general de referencia; verificar región y excepciones.",
+      "boardSizesMm": [[2440, 1220], [2440, 1830]],
+      "priceDataAvailable": false,
+      "priceDataNote": "Configura precios locales de tableros, herrajes y corte."
+    },
+    {
+      "code": "ES",
+      "name": "España",
+      "currency": "EUR",
+      "defaultUnit": "mm",
+      "taxName": "IVA",
+      "standardTaxPercent": 21,
+      "taxSource": "Agencia Tributaria · tipo general de IVA",
+      "taxUpdatedAt": "2026-11-04",
+      "taxNote": "Tarifa general de referencia; verificar tipo de producto.",
+      "boardSizesMm": [[2440, 1220], [3050, 1220]],
+      "priceDataAvailable": false,
+      "priceDataNote": "Configura precios locales de tableros, herrajes y corte."
+    },
+    {
+      "code": "US",
+      "name": "Estados Unidos",
+      "currency": "USD",
+      "defaultUnit": "in",
+      "taxName": "Sales tax",
+      "standardTaxPercent": null,
+      "taxSource": "Sin tasa federal única; depende de estado y localidad",
+      "taxUpdatedAt": "2026-11-04",
+      "taxNote": "Depende del estado y localidad; debe ingresarse manualmente.",
+      "boardSizesMm": [[2438.4, 1219.2], [2438.4, 1524]],
+      "priceDataAvailable": false,
+      "priceDataNote": "Configura precios, impuesto y servicios de tu localidad."
+    }
+  ],
+  "materialProfiles": [
+    {
+      "id": "mdf_standard",
+      "name": "MDF estándar",
+      "catalogMaterialId": "mdf_18",
+      "costBand": "bajo",
+      "pros": ["Superficie lisa y estable para pintar", "Fácil de mecanizar"],
+      "cons": ["Se hincha con humedad", "No recomendado sin sellado en zonas húmedas"],
+      "scores": {"hotDry": 4, "hotHumid": 1, "coldDry": 3, "temperate": 4, "coastal": 1},
+      "useScores": {"interior": 4, "kitchen": 1, "bathroom": 1, "exterior": 0, "warehouse": 3}
+    },
+    {
+      "id": "particleboard_standard",
+      "name": "Aglomerado melamínico estándar",
+      "catalogMaterialId": "particleboard_18",
+      "costBand": "bajo",
+      "pros": ["Económico", "Melamina lista para uso interior"],
+      "cons": ["Bordes vulnerables al agua", "Puede hincharse y perder fijación en humedad"],
+      "scores": {"hotDry": 4, "hotHumid": 1, "coldDry": 3, "temperate": 4, "coastal": 1},
+      "useScores": {"interior": 4, "kitchen": 2, "bathroom": 0, "exterior": 0, "warehouse": 3}
+    },
+    {
+      "id": "plywood_sealed",
+      "name": "Triplex / plywood sellado",
+      "catalogMaterialId": "plywood_18",
+      "costBand": "medio",
+      "pros": ["Mejor tolerancia a humedad que MDF/aglom. estándar", "Buena resistencia estructural"],
+      "cons": ["Sellar cantos y caras expuestas", "La calidad y adhesivo determinan su uso real"],
+      "scores": {"hotDry": 3, "hotHumid": 4, "coldDry": 4, "temperate": 4, "coastal": 3},
+      "useScores": {"interior": 3, "kitchen": 4, "bathroom": 3, "exterior": 2, "warehouse": 4}
+    },
+    {
+      "id": "mdf_rh",
+      "name": "MDF hidrófugo RH",
+      "catalogMaterialId": null,
+      "costBand": "medio-alto",
+      "pros": ["Resiste mejor humedad ambiental ocasional que MDF estándar"],
+      "cons": ["No es impermeable ni apto para inmersión", "Sellar cantos y confirmar certificación del tablero"],
+      "scores": {"hotDry": 3, "hotHumid": 3, "coldDry": 3, "temperate": 4, "coastal": 2},
+      "useScores": {"interior": 3, "kitchen": 3, "bathroom": 2, "exterior": 0, "warehouse": 3}
+    },
+    {
+      "id": "marine_plywood",
+      "name": "Triplex marino certificado",
+      "catalogMaterialId": null,
+      "costBand": "alto",
+      "pros": ["Adhesivo y chapas especificados para alta humedad"],
+      "cons": ["Más costoso", "Verificar norma/certificado; no todo triplex es marino"],
+      "scores": {"hotDry": 3, "hotHumid": 5, "coldDry": 3, "temperate": 3, "coastal": 4},
+      "useScores": {"interior": 2, "kitchen": 4, "bathroom": 5, "exterior": 4, "warehouse": 3}
+    },
+    {
+      "id": "hardwood_teak_cedar",
+      "name": "Madera dura durable (teca/cedro, por cotizar)",
+      "catalogMaterialId": null,
+      "costBand": "alto",
+      "pros": ["Algunas especies tienen buena durabilidad natural", "Reparable y renovable"],
+      "cons": ["La especie y procedencia importan", "Requiere mantenimiento y holguras por movimiento higroscópico"],
+      "scores": {"hotDry": 3, "hotHumid": 4, "coldDry": 2, "temperate": 3, "coastal": 4},
+      "useScores": {"interior": 3, "kitchen": 3, "bathroom": 3, "exterior": 4, "warehouse": 3}
+    }
+  ],
+  "climates": [
+    {"id": "hotDry", "label": "Cálido seco"},
+    {"id": "hotHumid", "label": "Cálido húmedo / tropical"},
+    {"id": "coldDry", "label": "Frío y seco"},
+    {"id": "temperate", "label": "Templado"},
+    {"id": "coastal", "label": "Costero con salitre"}
+  ],
+  "uses": [
+    {"id": "interior", "label": "Interior"},
+    {"id": "kitchen", "label": "Cocina"},
+    {"id": "bathroom", "label": "Baño"},
+    {"id": "exterior", "label": "Exterior"},
+    {"id": "warehouse", "label": "Bodega"}
+  ]
+}

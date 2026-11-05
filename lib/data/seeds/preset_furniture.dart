@@ -376,6 +376,85 @@ Furniture _openBookshelf() {
     );
   }
 
+  const confirmat = FastenerSpec(
+    kind: HardwareKind.confirmat,
+    diameterMm: 7,
+    lengthMm: 50,
+    label: 'Confirmat 7 x 50 mm',
+  );
+  const nail = FastenerSpec(
+    kind: HardwareKind.nail,
+    diameterMm: 1.6,
+    lengthMm: 30,
+    label: 'Clavo 1,6 x 30 mm',
+  );
+  final joints = [
+    const Joint(
+      id: 'bookshelf_left_bottom',
+      type: JointType.confirmat,
+      partAId: 'shelf_side_left',
+      partBId: 'shelf_bottom',
+      count: 3,
+      fastener: confirmat,
+    ),
+    const Joint(
+      id: 'bookshelf_right_bottom',
+      type: JointType.confirmat,
+      partAId: 'shelf_side_right',
+      partBId: 'shelf_bottom',
+      count: 3,
+      fastener: confirmat,
+    ),
+    const Joint(
+      id: 'bookshelf_left_top',
+      type: JointType.confirmat,
+      partAId: 'shelf_side_left',
+      partBId: 'shelf_top',
+      count: 3,
+      fastener: confirmat,
+    ),
+    const Joint(
+      id: 'bookshelf_right_top',
+      type: JointType.confirmat,
+      partAId: 'shelf_side_right',
+      partBId: 'shelf_top',
+      count: 3,
+      fastener: confirmat,
+    ),
+    const Joint(
+      id: 'bookshelf_back_left',
+      type: JointType.nail,
+      partAId: 'shelf_back',
+      partBId: 'shelf_side_left',
+      count: 8,
+      fastener: nail,
+    ),
+    const Joint(
+      id: 'bookshelf_back_right',
+      type: JointType.nail,
+      partAId: 'shelf_back',
+      partBId: 'shelf_side_right',
+      count: 8,
+      fastener: nail,
+    ),
+    const Joint(
+      id: 'bookshelf_back_top',
+      type: JointType.nail,
+      partAId: 'shelf_back',
+      partBId: 'shelf_top',
+      count: 6,
+      fastener: nail,
+    ),
+    const Joint(
+      id: 'bookshelf_back_bottom',
+      type: JointType.nail,
+      partAId: 'shelf_back',
+      partBId: 'shelf_bottom',
+      count: 6,
+      fastener: nail,
+    ),
+  ];
+
   return Furniture(
     id: 'preset_estanteria_model',
     name: 'Estantería abierta',
@@ -389,6 +468,7 @@ Furniture _openBookshelf() {
       plinthHeightMm: 0,
     ),
     parts: parts,
+    joints: joints,
   );
 }
 

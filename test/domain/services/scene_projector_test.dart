@@ -1,8 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mueble_cad/data/seeds/material_seed.dart';
+import 'package:mueble_cad/data/seeds/sample_furniture.dart';
 import 'package:mueble_cad/domain/entities/construction_settings.dart';
 import 'package:mueble_cad/domain/entities/furniture.dart';
 import 'package:mueble_cad/domain/entities/furniture_spec.dart';
 import 'package:mueble_cad/domain/entities/part.dart';
+import 'package:mueble_cad/domain/generators/cabinet_doors_drawer_generator.dart';
 import 'package:mueble_cad/domain/services/rendering/orbit_camera.dart';
 import 'package:mueble_cad/domain/services/rendering/scene_projector.dart';
 import 'package:mueble_cad/domain/value_objects/cut_size.dart';
@@ -168,6 +173,54 @@ void main() {
       for (final face in result.faces) {
         expect(face.shade, inInclusiveRange(0, 1));
       }
+    });
+
+    test('al ampliar el mueble crece su proyección sin auto-zoom', () {
+      const generator = CabinetDoorsDrawerGenerator();
+      final normal = generator.generate(
+        spec: sampleCabinetSpec,
+        catalog: sampleMaterialCatalog,
+      );
+      final wider = generator.generate(
+        spec: sampleCabinetSpec.copyWith(
+          overallSize: const Size3(width: 1200, height: 750, depth: 450),
+        ),
+        catalog: sampleMaterialCatalog,
+      );
+
+      ProjectionResult project(Furniture furniture) {
+        final camera = OrbitCamera(
+          yaw: 0.62,
+          pitch: 0.34,
+          distance: 2000,
+          target: Vector3(
+            furniture.overallSize.width / 2,
+            furniture.overallSize.height / 2,
+            furniture.overallSize.depth / 2,
+          ),
+        );
+        return projector.project(
+          furniture: furniture,
+          camera: camera,
+          viewportWidth: 800,
+          viewportHeight: 600,
+        );
+      }
+
+      double projectedWidth(ProjectionResult result) {
+        final xs = result.faces
+            .expand((face) => face.points)
+            .map((point) => point.x)
+            .toList();
+        final minX = xs.reduce(math.min);
+        final maxX = xs.reduce(math.max);
+        return maxX - minX;
+      }
+
+      expect(
+        projectedWidth(project(wider)),
+        greaterThan(projectedWidth(project(normal))),
+      );
     });
   });
 }

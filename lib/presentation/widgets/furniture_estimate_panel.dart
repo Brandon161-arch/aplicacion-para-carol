@@ -7,8 +7,10 @@ import '../../domain/entities/furniture.dart';
 import '../../domain/entities/hardware_item.dart';
 import '../../domain/entities/hardware_requirement.dart';
 import '../../domain/services/furniture_estimator.dart';
+import '../../domain/services/manufacturability_validator.dart';
 import '../providers/designer_providers.dart';
 import '../providers/pricing_providers.dart';
+import '../providers/project_context_provider.dart';
 import 'pricing_editor_dialog.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
@@ -23,42 +25,163 @@ class FurnitureEstimatePanel extends ConsumerWidget {
     final catalog = ref.watch(materialCatalogProvider);
     final hardwarePrices = ref.watch(hardwarePriceCatalogProvider);
     final pricing = ref.watch(pricingSettingsProvider);
+    final projectContext = ref.watch(projectContextValueProvider);
+    final country = projectContext?.country;
+    final regionalPricesAvailable = country?.priceDataAvailable ?? true;
     final estimate = const FurnitureEstimator().calculate(
       furniture: furniture,
       catalog: catalog,
       hardwarePrices: hardwarePrices,
       pricingSettings: pricing,
+      taxPercent: country?.standardTaxPercent ?? 0,
+      kerfMm: projectContext?.kerfMm ?? 3.2,
+      cutPriceTiers: country?.cutPriceTiers ?? const [],
+      pricingNote: country?.pricingNote ?? 'Precios locales no configurados.',
+    );
+    final buildabilityIssues = const ManufacturabilityValidator().validate(
+      furniture: furniture,
+      materials: catalog,
+      boardFormats: country?.boardSizes ?? const [],
+      kerfMm: projectContext?.kerfMm ?? 3.2,
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final hardwareCard = HardwareCard(requirements: estimate.hardware);
-        final costCard = CostSummaryCard(
-          report: estimate.costs,
-          onEditPrices: () => showPricingEditorDialog(context, ref),
-        );
-        if (constraints.maxWidth >= 1100) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _BuildabilityCard(issues: buildabilityIssues),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final hardwareCard = HardwareCard(
+              requirements: estimate.hardware,
+              showPrices: regionalPricesAvailable,
+            );
+            final costCard = CostSummaryCard(
+              report: estimate.costs,
+              onEditPrices: () => showPricingEditorDialog(context, ref),
+            );
+            final displayedCostCard = regionalPricesAvailable
+                ? costCard
+                : _RegionalCostUnavailableCard(
+                    countryName: country?.name ?? 'este país',
+                  );
+            if (constraints.maxWidth >= 1100) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: hardwareCard),
+                  const SizedBox(width: 16),
+                  SizedBox(width: 380, child: displayedCostCard),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                hardwareCard,
+                const SizedBox(height: 16),
+                displayedCostCard,
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _BuildabilityCard extends StatelessWidget {
+  final List<BuildabilityIssue> issues;
+
+  const _BuildabilityCard({required this.issues});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final errors = issues
+        .where((issue) => issue.severity == BuildabilitySeverity.error)
+        .toList(growable: false);
+    final warnings = issues
+        .where((issue) => issue.severity == BuildabilitySeverity.warning)
+        .toList(growable: false);
+    final color = errors.isNotEmpty
+        ? scheme.error
+        : warnings.isNotEmpty
+        ? const Color(0xFFB26A00)
+        : const Color(0xFF2E7D32);
+    final visibleIssues = [...errors, ...warnings].take(4);
+
+    return SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Expanded(child: hardwareCard),
-              const SizedBox(width: 16),
-              SizedBox(width: 380, child: costCard),
+              Icon(
+                errors.isNotEmpty
+                    ? Icons.error_outline
+                    : warnings.isNotEmpty
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
+                color: color,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  errors.isNotEmpty
+                      ? 'Hay problemas de fabricación'
+                      : warnings.isNotEmpty
+                      ? 'Revisa estas condiciones antes de fabricar'
+                      : 'Validación geométrica sin alertas',
+                  style: theme.textTheme.titleMedium?.copyWith(color: color),
+                ),
+              ),
+              Text(
+                '${errors.length} errores · ${warnings.length} avisos',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ],
-          );
-        }
-        return Column(
-          children: [hardwareCard, const SizedBox(height: 16), costCard],
-        );
-      },
+          ),
+          const SizedBox(height: 8),
+          for (final issue in visibleIssues)
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                '• ${issue.message} ${issue.suggestion}',
+                style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+              ),
+            ),
+          if (issues.isEmpty)
+            Text(
+              'Se comprobaron dimensiones, límites del tablero, veta y colisiones de cajas. Las uniones, cargas estructurales y holguras de herrajes todavía requieren verificación específica.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          if (issues.length > 4)
+            Text(
+              'Hay ${issues.length - 4} alertas adicionales.',
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
+            ),
+        ],
+      ),
     );
   }
 }
 
 class HardwareCard extends StatelessWidget {
   final List<HardwareRequirement> requirements;
+  final bool showPrices;
 
-  const HardwareCard({super.key, required this.requirements});
+  const HardwareCard({
+    super.key,
+    required this.requirements,
+    this.showPrices = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -109,12 +232,15 @@ class HardwareCard extends StatelessWidget {
             )
           else ...[
             for (var index = 0; index < requirements.length; index++) ...[
-              _HardwareRow(requirement: requirements[index]),
+              _HardwareRow(
+                requirement: requirements[index],
+                showPrices: showPrices,
+              ),
               if (index < requirements.length - 1) const Divider(height: 14),
             ],
             const SizedBox(height: 10),
             Text(
-              'Ubicaciones orientativas. Verifica diámetro, largo y patrón de perforación del fabricante antes de armar.',
+              'Ubicaciones orientativas; en muebles creados a mano algunas uniones se infieren por contacto entre piezas. Verifica diámetro, largo y patrón del fabricante antes de perforar.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
                 height: 1.4,
@@ -129,8 +255,9 @@ class HardwareCard extends StatelessWidget {
 
 class _HardwareRow extends StatelessWidget {
   final HardwareRequirement requirement;
+  final bool showPrices;
 
-  const _HardwareRow({required this.requirement});
+  const _HardwareRow({required this.requirement, required this.showPrices});
 
   @override
   Widget build(BuildContext context) {
@@ -166,12 +293,13 @@ class _HardwareRow extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
-                requirement.spec,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (requirement.spec != requirement.name)
+                Text(
+                  requirement.spec,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
               if (placements.isNotEmpty)
                 Tooltip(
                   message: placements,
@@ -189,23 +317,41 @@ class _HardwareRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '×${requirement.quantity}',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: scheme.primary,
-                fontWeight: FontWeight.w800,
+        SizedBox(
+          width: 92,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '×${requirement.quantity}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-            ),
-            Text(
-              formatMoney(requirement.totalPriceCents),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+              if (showPrices)
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    formatMoney(requirement.totalPriceCents),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  'precio local pendiente',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -253,10 +399,13 @@ class CostSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Costo estimado', style: theme.textTheme.titleLarge),
+                    Text(
+                      'Costo total estimado',
+                      style: theme.textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 2),
                     Text(
-                      'Materiales, corte y herrajes',
+                      'Producción + impuesto local; sin margen comercial',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -272,11 +421,21 @@ class CostSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            formatMoney(report.grandTotalCents, currency: report.currency),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: scheme.primary,
-              fontWeight: FontWeight.w800,
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                formatMoney(
+                  report.totalWithTaxCents,
+                  currency: report.currency,
+                ),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -290,6 +449,17 @@ class CostSummaryCard extends StatelessWidget {
           _SummaryLine(label: 'Herrajes', cents: report.hardwareTotalCents),
           if (report.laborTotalCents > 0)
             _SummaryLine(label: 'Mano de obra', cents: report.laborTotalCents),
+          const Divider(height: 16),
+          _SummaryLine(
+            label: 'Subtotal de producción',
+            cents: report.grandTotalCents,
+          ),
+          if (report.taxPercent > 0)
+            _SummaryLine(
+              label:
+                  'Impuesto local (${report.taxPercent.toStringAsFixed(0)}%)',
+              cents: report.taxTotalCents,
+            ),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
@@ -300,8 +470,10 @@ class CostSummaryCard extends StatelessWidget {
             ),
             child: Text(
               'Láminas estimadas: ${report.estimatedSheets} · '
+              'kerf ${formatMm(report.kerfMm)} mm, recorrido aprox. ${formatMeters(report.estimatedCutLengthM)} m '
+              '(${formatM2(report.estimatedKerfLossM2)} m²) · '
               'desperdicio: ${formatM2(report.estimatedWasteAreaM2)} m² '
-              '(incluido en la compra de láminas).',
+              '(${formatMoney(report.wasteTotalCents)} aprox., incluido en láminas).',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -314,6 +486,34 @@ class CostSummaryCard extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               fontSize: 10.5,
               height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RegionalCostUnavailableCard extends StatelessWidget {
+  final String countryName;
+
+  const _RegionalCostUnavailableCard({required this.countryName});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Precios locales pendientes', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(
+            'La lista de materiales y cantidades sigue disponible, pero aún no hay precios regionales configurados para $countryName. No convertimos referencias COP a otra moneda porque no serían una cotización local.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.4,
             ),
           ),
         ],
@@ -360,10 +560,17 @@ class _CostLineRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            formatMoney(line.totalCents),
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+          SizedBox(
+            width: 92,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatMoney(line.totalCents),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ],
@@ -386,10 +593,17 @@ class _SummaryLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          Text(
-            formatMoney(cents),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+          SizedBox(
+            width: 92,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatMoney(cents),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ],

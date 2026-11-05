@@ -12,6 +12,7 @@ class ViewerCard extends StatelessWidget {
   final Furniture furniture;
   final double viewerHeight;
   final Widget? headerAction;
+  final Widget? toolbar;
   final bool moveMode;
   final String? selectedPartId;
   final ValueChanged<String>? onPartSelected;
@@ -22,6 +23,7 @@ class ViewerCard extends StatelessWidget {
     required this.furniture,
     this.viewerHeight = 460,
     this.headerAction,
+    this.toolbar,
     this.moveMode = false,
     this.selectedPartId,
     this.onPartSelected,
@@ -67,6 +69,11 @@ class ViewerCard extends StatelessWidget {
               ],
             ),
           ),
+          if (toolbar != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: SizedBox(height: 42, child: toolbar),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ClipRRect(

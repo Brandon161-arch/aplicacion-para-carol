@@ -7,16 +7,21 @@ import '../../core/constants/units.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/services/cut_list_calculator.dart';
+import '../../domain/services/manufacturability_validator.dart';
 import '../../domain/value_objects/vector3.dart';
+import '../../domain/value_objects/measurement_unit.dart';
 import '../painters/part_palette.dart';
 import '../providers/custom_model_providers.dart';
 import '../providers/designer_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/project_context_provider.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/flat_patterns_panel.dart';
+import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/mm_field.dart';
 import '../widgets/part_detail_dialog.dart';
 import '../widgets/part_editor_dialog.dart';
+import '../widgets/regional_material_panel.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/viewer_card.dart';
 
@@ -53,6 +58,17 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     final cutList = ref.watch(customCutListProvider);
     final catalog = ref.watch(materialCatalogProvider);
     final presets = ref.watch(presetFurnitureProvider);
+    final projectContext = ref.watch(projectContextValueProvider);
+    final displayUnit = projectContext?.unit ?? MeasurementUnit.millimeter;
+    final buildabilityIssues = const ManufacturabilityValidator().validate(
+      furniture: furniture,
+      materials: catalog,
+      boardFormats: projectContext?.country.boardSizes ?? const [],
+      kerfMm: projectContext?.kerfMm ?? 3.2,
+    );
+    final hasBuildabilityErrors = buildabilityIssues.any(
+      (issue) => issue.severity == BuildabilitySeverity.error,
+    );
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final controller = ref.read(customModelProvider.notifier);
@@ -105,6 +121,14 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       );
     }
 
+    void scalePartsToOverall() {
+      controller.scalePartsToOverall();
+      _snack(
+        context,
+        'Piezas escaladas al volumen. Se conservaron los espesores de los paneles.',
+      );
+    }
+
     CutListItem? itemForPart(String partId) {
       for (final item in cutList.items) {
         if (item.partIds.contains(partId)) return item;
@@ -125,6 +149,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         overallSize: draft.overallSize,
         defaultThickness: draft.settings.panelThicknessMm,
         initialPart: initial,
+        displayUnit: displayUnit,
       );
       if (result == null || !mounted) return;
       if (initial == null) {
@@ -142,6 +167,13 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     Future<void> saveModel() async {
       if (draft.parts.isEmpty) {
         _snack(context, 'Agrega al menos una pieza antes de guardar.');
+        return;
+      }
+      if (hasBuildabilityErrors) {
+        _snack(
+          context,
+          'Corrige los errores de fabricabilidad antes de guardar. Revisa el panel de validación.',
+        );
         return;
       }
       try {
@@ -264,6 +296,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       fieldKey: const Key('create_width_field'),
                       label: 'Ancho',
                       value: draft.overallSize.width,
+                      unit: displayUnit,
                       onChanged: (value) =>
                           controller.updateOverallSize(width: value),
                     ),
@@ -274,6 +307,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       fieldKey: const Key('create_height_field'),
                       label: 'Alto',
                       value: draft.overallSize.height,
+                      unit: displayUnit,
                       onChanged: (value) =>
                           controller.updateOverallSize(height: value),
                     ),
@@ -285,6 +319,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 fieldKey: const Key('create_depth_field'),
                 label: 'Fondo',
                 value: draft.overallSize.depth,
+                unit: displayUnit,
                 onChanged: (value) =>
                     controller.updateOverallSize(depth: value),
               ),
@@ -330,9 +365,10 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Text(
-                  'Las medidas generales son la caja de referencia que ves en el 3D. '
-                  'Las piezas conservan su tamaño; usa "Ajustar medidas al contenido" '
-                  'para encajar la caja al volumen real.',
+                  'Las medidas generales son la caja de referencia del 3D. '
+                  'Al cambiar las cotas, pulsa "Escalar piezas al volumen" para adaptar '
+                  'los paneles conservando su espesor. "Ajustar medidas al contenido" '
+                  'hace lo contrario: encaja la caja a las piezas actuales.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                     height: 1.35,
@@ -371,6 +407,15 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
+                  onPressed: draft.parts.isEmpty ? null : scalePartsToOverall,
+                  icon: const Icon(Icons.open_in_full, size: 18),
+                  label: const Text('Escalar piezas al volumen'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
                   onPressed: confirmNewModel,
                   icon: const Icon(Icons.note_add_outlined, size: 18),
                   label: const Text('Nuevo mueble'),
@@ -397,6 +442,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        const RegionalMaterialPanel(),
         const SizedBox(height: 14),
         SurfaceCard(
           child: Column(
@@ -593,9 +640,46 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       ),
     );
 
+    Widget selectionToolbar() {
+      if (selected == null) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            _moveMode
+                ? 'Arrastra una pieza para seleccionarla y moverla.'
+                : 'Activa Mover para arrastrar piezas en X/Z.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+
+      return _SelectedPartToolbar(
+        part: selected,
+        onEdit: () => addPart(initial: selected),
+        onFloor: () => updatePartPosition(selected, y: 0),
+        onUp: () => updatePartPosition(selected, y: selected.position.y + 10),
+        onDown: () => updatePartPosition(selected, y: selected.position.y - 10),
+        onCenterX: () => updatePartPosition(
+          selected,
+          x: (draft.overallSize.width - selected.size.width) / 2,
+        ),
+        onCenterZ: () => updatePartPosition(
+          selected,
+          z: (draft.overallSize.depth - selected.size.depth) / 2,
+        ),
+        onDelete: () => confirmDelete(selected),
+        onClose: () => setState(() => _selectedPartId = null),
+      );
+    }
+
     Widget buildViewer(double height) => ViewerCard(
       furniture: furniture,
       viewerHeight: height,
+      toolbar: selectionToolbar(),
       headerAction: FilterChip(
         label: const Text('Mover'),
         selected: _moveMode,
@@ -670,6 +754,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       }
                     },
                   ),
+                  const SizedBox(height: 20),
+                  FurnitureEstimatePanel(furniture: furniture),
                 ],
               );
 
@@ -694,37 +780,11 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 children: [
                   _CreateHeader(
                     theme: theme,
-                    canSave: draft.parts.isNotEmpty,
+                    canSave: draft.parts.isNotEmpty && !hasBuildabilityErrors,
                     onSave: saveModel,
                     onNew: confirmNewModel,
                   ),
                   const SizedBox(height: 18),
-                  if (selected != null) ...[
-                    _SelectedPartBar(
-                      part: selected,
-                      onEdit: () => addPart(initial: selected),
-                      onFloor: () => updatePartPosition(selected, y: 0),
-                      onUp: () => updatePartPosition(
-                        selected,
-                        y: selected.position.y + 10,
-                      ),
-                      onDown: () => updatePartPosition(
-                        selected,
-                        y: selected.position.y - 10,
-                      ),
-                      onCenterX: () => updatePartPosition(
-                        selected,
-                        x: (draft.overallSize.width - selected.size.width) / 2,
-                      ),
-                      onCenterZ: () => updatePartPosition(
-                        selected,
-                        z: (draft.overallSize.depth - selected.size.depth) / 2,
-                      ),
-                      onDelete: () => confirmDelete(selected),
-                      onClose: () => setState(() => _selectedPartId = null),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
                   content,
                 ],
               ),
@@ -742,7 +802,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
   }
 }
 
-class _SelectedPartBar extends StatelessWidget {
+class _SelectedPartToolbar extends StatelessWidget {
   final Part part;
   final VoidCallback onEdit;
   final VoidCallback onFloor;
@@ -753,7 +813,7 @@ class _SelectedPartBar extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onClose;
 
-  const _SelectedPartBar({
+  const _SelectedPartToolbar({
     required this.part,
     required this.onEdit,
     required this.onFloor,
@@ -768,97 +828,92 @@ class _SelectedPartBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return SurfaceCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final label =
+        '${part.name} · ${formatMm(part.cutSize.length)} × ${formatMm(part.cutSize.width)} × ${formatMm(part.cutSize.thickness)} mm';
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(partIcon(part.kind), size: 18),
+          Icon(partIcon(part.kind), size: 17),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 180,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pieza seleccionada: ${part.name}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      '${formatMm(part.cutSize.length)} × ${formatMm(part.cutSize.width)} × ${formatMm(part.cutSize.thickness)} mm · '
-                      'X ${formatMm(part.position.x)} · Y ${formatMm(part.position.y)} · Z ${formatMm(part.position.z)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Quitar selección',
-                onPressed: onClose,
-                icon: const Icon(Icons.close, size: 18),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              OutlinedButton.icon(
-                onPressed: onEdit,
-                icon: const Icon(Icons.straighten, size: 16),
-                label: const Text('Medidas'),
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.vertical_align_bottom, size: 16),
-                label: const Text('Piso'),
-                onPressed: onFloor,
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.arrow_upward, size: 16),
-                label: const Text('Subir 10'),
-                onPressed: onUp,
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.arrow_downward, size: 16),
-                label: const Text('Bajar 10'),
-                onPressed: onDown,
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.align_horizontal_center, size: 16),
-                label: const Text('Centrar X'),
-                onPressed: onCenterX,
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.align_vertical_center, size: 16),
-                label: const Text('Centrar Z'),
-                onPressed: onCenterZ,
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.delete_outline, size: 16),
-                label: const Text('Eliminar'),
-                onPressed: onDelete,
-              ),
-            ],
+          _ToolIconButton(
+            tooltip: 'Editar medidas',
+            icon: Icons.straighten,
+            onPressed: onEdit,
+          ),
+          _ToolIconButton(
+            tooltip: 'Poner en el piso',
+            icon: Icons.vertical_align_bottom,
+            onPressed: onFloor,
+          ),
+          _ToolIconButton(
+            tooltip: 'Subir 10 mm',
+            icon: Icons.arrow_upward,
+            onPressed: onUp,
+          ),
+          _ToolIconButton(
+            tooltip: 'Bajar 10 mm',
+            icon: Icons.arrow_downward,
+            onPressed: onDown,
+          ),
+          _ToolIconButton(
+            tooltip: 'Centrar en X',
+            icon: Icons.align_horizontal_center,
+            onPressed: onCenterX,
+          ),
+          _ToolIconButton(
+            tooltip: 'Centrar en Z',
+            icon: Icons.align_vertical_center,
+            onPressed: onCenterZ,
+          ),
+          _ToolIconButton(
+            tooltip: 'Eliminar pieza',
+            icon: Icons.delete_outline,
+            onPressed: onDelete,
+          ),
+          _ToolIconButton(
+            tooltip: 'Quitar selección',
+            icon: Icons.close,
+            onPressed: onClose,
           ),
         ],
       ),
     );
   }
+}
+
+class _ToolIconButton extends StatelessWidget {
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _ToolIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+    iconSize: 17,
+    visualDensity: VisualDensity.compact,
+    icon: Icon(icon),
+  );
 }
 
 class _CreateHeader extends StatelessWidget {

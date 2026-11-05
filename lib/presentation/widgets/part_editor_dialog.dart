@@ -4,10 +4,11 @@ import '../../core/constants/units.dart';
 import '../../domain/entities/material.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
+import '../../domain/value_objects/measurement_unit.dart';
 import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
-import '../painters/flat_pattern_painter.dart';
 import '../painters/part_palette.dart';
+import 'interactive_flat_pattern.dart';
 import 'surface_card.dart';
 
 enum PanelOrientation {
@@ -27,6 +28,7 @@ Future<Part?> showPartEditorDialog(
   required Size3 overallSize,
   required double defaultThickness,
   Part? initialPart,
+  MeasurementUnit displayUnit = MeasurementUnit.millimeter,
 }) {
   return showDialog<Part>(
     context: context,
@@ -35,6 +37,7 @@ Future<Part?> showPartEditorDialog(
       overallSize: overallSize,
       defaultThickness: defaultThickness,
       initialPart: initialPart,
+      displayUnit: displayUnit,
     ),
   );
 }
@@ -44,12 +47,14 @@ class PartEditorDialog extends StatefulWidget {
   final Size3 overallSize;
   final double defaultThickness;
   final Part? initialPart;
+  final MeasurementUnit displayUnit;
 
   const PartEditorDialog({
     super.key,
     required this.catalog,
     required this.overallSize,
     required this.defaultThickness,
+    this.displayUnit = MeasurementUnit.millimeter,
     this.initialPart,
   });
 
@@ -99,17 +104,23 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
         initial?.cutSize ??
         CutSize(length: 600, width: 300, thickness: widget.defaultThickness);
     _nameController = TextEditingController(text: initial?.name ?? _kind.label);
-    _lengthController = TextEditingController(text: formatMm(cut.length));
-    _widthController = TextEditingController(text: formatMm(cut.width));
-    _thicknessController = TextEditingController(text: formatMm(cut.thickness));
+    _lengthController = TextEditingController(
+      text: widget.displayUnit.formatValue(cut.length),
+    );
+    _widthController = TextEditingController(
+      text: widget.displayUnit.formatValue(cut.width),
+    );
+    _thicknessController = TextEditingController(
+      text: widget.displayUnit.formatValue(cut.thickness),
+    );
     _xController = TextEditingController(
-      text: formatMm(initial?.position.x ?? 0),
+      text: widget.displayUnit.formatValue(initial?.position.x ?? 0),
     );
     _yController = TextEditingController(
-      text: formatMm(initial?.position.y ?? 0),
+      text: widget.displayUnit.formatValue(initial?.position.y ?? 0),
     );
     _zController = TextEditingController(
-      text: formatMm(initial?.position.z ?? 0),
+      text: widget.displayUnit.formatValue(initial?.position.z ?? 0),
     );
   }
 
@@ -177,8 +188,10 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
         ),
       };
 
-  double? _parse(TextEditingController controller) =>
-      double.tryParse(controller.text.trim().replaceAll(',', '.'));
+  double? _parse(TextEditingController controller) {
+    final value = double.tryParse(controller.text.trim().replaceAll(',', '.'));
+    return value == null ? null : widget.displayUnit.toMillimeters(value);
+  }
 
   CutSize? get _cutSize {
     final length = _parse(_lengthController);
@@ -214,7 +227,9 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
         final wood = _catalog.byId('solid_wood_60');
         if (wood != null) {
           _materialId = wood.id;
-          _thicknessController.text = formatMm(wood.thicknessesMm.first);
+          _thicknessController.text = widget.displayUnit.formatValue(
+            wood.thicknessesMm.first,
+          );
         }
       }
     });
@@ -226,15 +241,23 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
     setState(() {
       _materialId = id;
       if (material != null && material.thicknessesMm.isNotEmpty) {
-        _thicknessController.text = formatMm(material.thicknessesMm.first);
+        _thicknessController.text = widget.displayUnit.formatValue(
+          material.thicknessesMm.first,
+        );
       }
     });
   }
 
   void _setPosition({double? x, double? y, double? z}) {
-    if (x != null) _xController.text = formatMm(x < 0 ? 0 : x);
-    if (y != null) _yController.text = formatMm(y < 0 ? 0 : y);
-    if (z != null) _zController.text = formatMm(z < 0 ? 0 : z);
+    if (x != null) {
+      _xController.text = widget.displayUnit.formatValue(x < 0 ? 0 : x);
+    }
+    if (y != null) {
+      _yController.text = widget.displayUnit.formatValue(y < 0 ? 0 : y);
+    }
+    if (z != null) {
+      _zController.text = widget.displayUnit.formatValue(z < 0 ? 0 : z);
+    }
     setState(() {});
   }
 
@@ -293,6 +316,67 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
     final world = _world;
     final material = _catalog.byId(_materialId);
 
+    Widget patternPreview() => SurfaceCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Vista previa de la plantilla',
+                  style: theme.textTheme.labelLarge,
+                ),
+              ),
+              if (material != null)
+                Text(
+                  material.name,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 170,
+            child: cut == null
+                ? Center(
+                    child: Text(
+                      'Completa las medidas para ver la plantilla.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : InteractiveFlatPattern(
+                    cutSize: cut,
+                    grain: _grain,
+                    bandedEdges: _bandedEdges,
+                    panelColor: partColor(_kind),
+                    onChanged: (updated) {
+                      _lengthController.text = widget.displayUnit.formatValue(
+                        updated.length,
+                      );
+                      _widthController.text = widget.displayUnit.formatValue(
+                        updated.width,
+                      );
+                      setState(() {});
+                    },
+                  ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Arrastra el punto naranja para ajustar largo y ancho con el mouse.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       clipBehavior: Clip.antiAlias,
@@ -330,7 +414,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                                 style: theme.textTheme.titleLarge,
                               ),
                               Text(
-                                'Medidas en milímetros. Todo se puede ajustar con el mouse.',
+                                'Entrada en ${widget.displayUnit.label.toLowerCase()}; despiece técnico en mm. Ajusta la plantilla con el mouse.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -377,18 +461,24 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final lengthField = _NumberField(
+                          fieldKey: const Key('part_length_field'),
                           controller: _lengthController,
                           label: 'Largo',
+                          unit: widget.displayUnit,
                           onChanged: () => setState(() {}),
                         );
                         final widthField = _NumberField(
+                          fieldKey: const Key('part_width_field'),
                           controller: _widthController,
                           label: 'Ancho',
+                          unit: widget.displayUnit,
                           onChanged: () => setState(() {}),
                         );
                         final thicknessField = _NumberField(
+                          fieldKey: const Key('part_thickness_field'),
                           controller: _thicknessController,
                           label: 'Espesor',
+                          unit: widget.displayUnit,
                           onChanged: () => setState(() {}),
                         );
                         if (constraints.maxWidth >= 560) {
@@ -417,6 +507,8 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                         );
                       },
                     ),
+                    const SizedBox(height: 14),
+                    patternPreview(),
                     const SizedBox(height: 16),
                     Text(
                       'Orientación en el mueble',
@@ -485,6 +577,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                           child: _NumberField(
                             controller: _xController,
                             label: 'X',
+                            unit: widget.displayUnit,
                             onChanged: () => setState(() {}),
                           ),
                         ),
@@ -493,6 +586,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                           child: _NumberField(
                             controller: _yController,
                             label: 'Y',
+                            unit: widget.displayUnit,
                             onChanged: () => setState(() {}),
                           ),
                         ),
@@ -501,6 +595,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                           child: _NumberField(
                             controller: _zController,
                             label: 'Z',
+                            unit: widget.displayUnit,
                             onChanged: () => setState(() {}),
                           ),
                         ),
@@ -605,55 +700,6 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    SurfaceCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Vista previa de la plantilla',
-                                  style: theme.textTheme.labelLarge,
-                                ),
-                              ),
-                              if (material != null)
-                                Text(
-                                  material.name,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 170,
-                            child: cut == null
-                                ? Center(
-                                    child: Text(
-                                      'Completa las medidas para ver la plantilla.',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  )
-                                : CustomPaint(
-                                    painter: FlatPatternPainter(
-                                      cutSize: cut,
-                                      grain: _grain,
-                                      bandedEdges: _bandedEdges,
-                                      panelColor: partColor(_kind),
-                                    ),
-                                    child: const SizedBox.expand(),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
                     if (_error != null) ...[
                       const SizedBox(height: 10),
                       Text(
@@ -755,24 +801,29 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
 }
 
 class _NumberField extends StatelessWidget {
+  final Key? fieldKey;
   final TextEditingController controller;
   final String label;
   final VoidCallback onChanged;
+  final MeasurementUnit unit;
 
   const _NumberField({
+    this.fieldKey,
     required this.controller,
     required this.label,
     required this.onChanged,
+    required this.unit,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: fieldKey,
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textInputAction: TextInputAction.next,
       onChanged: (_) => onChanged(),
-      decoration: InputDecoration(labelText: label, suffixText: 'mm'),
+      decoration: InputDecoration(labelText: label, suffixText: unit.code),
     );
   }
 }

@@ -4,12 +4,13 @@ import '../entities/cost_report.dart';
 import '../entities/hardware_requirement.dart';
 import '../entities/material.dart';
 import '../entities/pricing_settings.dart';
+import '../entities/regional_catalog.dart';
 import 'cut_list_calculator.dart';
 
 /// Estima compra de material por lámina, cantos, corte y herrajes.
 ///
-/// El cálculo de láminas usa área más desperdicio; no reemplaza un nesting
-/// optimizado. Las tarifas de corte son referencias públicas de Madecentro.
+/// El cálculo de láminas usa área más kerf y desperdicio; no reemplaza un
+/// nesting optimizado. Precios y rangos se reciben desde el perfil regional.
 class CostCalculator {
   const CostCalculator();
 
@@ -18,6 +19,9 @@ class CostCalculator {
     required MaterialCatalog catalog,
     required List<HardwareRequirement> hardware,
     required PricingSettings settings,
+    double taxPercent = 0,
+    List<CutPriceTier> cutPriceTiers = const [],
+    String pricingNote = 'Precios locales no configurados.',
   }) {
     final lines = <CostLine>[];
     final materialLines = <_MaterialEstimate>[];
@@ -29,6 +33,7 @@ class CostCalculator {
 
     for (final material in catalog.materials) {
       final area = cutList.areaByMaterial[material.id] ?? 0;
+      final kerfArea = cutList.kerfLossM2ByMaterial[material.id] ?? 0;
       final pieces = cutList.piecesByMaterial[material.id] ?? 0;
       if (pieces == 0) continue;
 
@@ -36,7 +41,7 @@ class CostCalculator {
         case PriceUnit.perSheet:
           final sheetSize = material.sheetSize;
           if (sheetSize == null || sheetSize.areaM2 <= 0) continue;
-          final requiredArea = area * (1 + wasteFraction);
+          final requiredArea = (area + kerfArea) * (1 + wasteFraction);
           final sheets = math.max(1, (requiredArea / sheetSize.areaM2).ceil());
           final cost = sheets * material.priceCents;
           final purchasedArea = sheets * sheetSize.areaM2;
@@ -67,6 +72,7 @@ class CostCalculator {
               totalCents: cost,
               detail:
                   '${area.toStringAsFixed(2)} m² en piezas; $pieces piezas; '
+                  'kerf aprox. ${kerfArea.toStringAsFixed(3)} m²; '
                   'lámina ${sheetSize.widthMm.round()} x ${sheetSize.heightMm.round()} mm',
             ),
           );
@@ -186,7 +192,7 @@ class CostCalculator {
       final piecesPerSheet = (estimate.pieces / estimate.sheets).ceil();
       final pricePerSheet =
           settings.cutPricePerSheetOverrideCents ??
-          _madecentroCutPricePerSheet(piecesPerSheet);
+          _cutPricePerSheet(piecesPerSheet, cutPriceTiers);
       final cost = pricePerSheet * estimate.sheets;
       cuttingTotal += cost;
       lines.add(
@@ -198,7 +204,7 @@ class CostCalculator {
           unitPriceCents: pricePerSheet,
           totalCents: cost,
           detail: settings.cutPricePerSheetOverrideCents == null
-              ? 'Tarifa de referencia Madecentro para $piecesPerSheet piezas/lámina.'
+              ? 'Tarifa configurada para $piecesPerSheet piezas/lámina.'
               : 'Tarifa manual por lámina.',
         ),
       );
@@ -236,6 +242,14 @@ class CostCalculator {
       );
     }
 
+    final productionTotal =
+        materialTotal +
+        edgeBandingTotal +
+        cuttingTotal +
+        hardwareTotal +
+        laborTotal;
+    final taxTotal = (productionTotal * math.max(0, taxPercent) / 100).round();
+
     return CostReport(
       lines: lines,
       materialTotalCents: materialTotal,
@@ -244,28 +258,30 @@ class CostCalculator {
       cuttingTotalCents: cuttingTotal,
       hardwareTotalCents: hardwareTotal,
       laborTotalCents: laborTotal,
-      grandTotalCents:
-          materialTotal +
-          edgeBandingTotal +
-          cuttingTotal +
-          hardwareTotal +
-          laborTotal,
+      grandTotalCents: productionTotal,
+      taxPercent: math.max(0, taxPercent).toDouble(),
+      taxTotalCents: taxTotal,
+      totalWithTaxCents: productionTotal + taxTotal,
       cutAreaM2: cutList.totalAreaM2,
+      estimatedKerfLossM2: cutList.estimatedKerfLossM2,
+      estimatedCutLengthM: cutList.estimatedCutLengthM,
+      kerfMm: cutList.kerfMm,
       estimatedWasteAreaM2: estimatedWasteArea,
       estimatedSheets: sheetCountTotal,
       currency: settings.currency,
-      pricingNote: 'Precios de referencia Madecentro/Homecenter; varían por ciudad, marca, color y disponibilidad. El corte se estima por lámina, sin nesting optimizado.',
+      pricingNote:
+          '$pricingNote Kerf estimado conservadoramente desde perímetros; láminas por área, sin nesting optimizado.',
     );
   }
 
-  int _madecentroCutPricePerSheet(int piecesPerSheet) {
-    // Madecentro publica tarifas por rangos de piezas por lámina. Para 1–15
-    // piezas se aplica como referencia el primer rango publicado (16–25).
-    if (piecesPerSheet <= 25) return 535400; // COP 5.354
-    if (piecesPerSheet <= 35) return 815000; // COP 8.150
-    if (piecesPerSheet <= 50) return 1344300; // COP 13.443
-    if (piecesPerSheet <= 100) return 1993100; // COP 19.931
-    return 2832500; // COP 28.325
+  int _cutPricePerSheet(int piecesPerSheet, List<CutPriceTier> tiers) {
+    for (final tier in tiers) {
+      final maximum = tier.maxPiecesPerSheet;
+      if (maximum == null || piecesPerSheet <= maximum) {
+        return tier.priceCents;
+      }
+    }
+    return 0;
   }
 
   int _estimateWasteCost(List<_MaterialEstimate> estimates) {

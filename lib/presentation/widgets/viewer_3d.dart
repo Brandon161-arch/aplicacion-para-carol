@@ -59,12 +59,6 @@ class _Viewer3DState extends State<Viewer3D> {
     _distance = _fitDistance;
   }
 
-  @override
-  void didUpdateWidget(covariant Viewer3D oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _distance = _distance.clamp(_minDistance, _maxDistance).toDouble();
-  }
-
   double get _fitDistance =>
       math.max(300.0, widget.furniture.overallSize.maxDimension * 2.0);
 

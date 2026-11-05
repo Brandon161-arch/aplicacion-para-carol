@@ -7,6 +7,42 @@ import '../../core/constants/units.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
 
+class FlatPatternMetrics {
+  final Rect panelRect;
+  final double scale;
+
+  const FlatPatternMetrics({required this.panelRect, required this.scale});
+}
+
+/// Comparte la misma escala y posición entre el painter y el editor con mouse.
+FlatPatternMetrics calculateFlatPatternMetrics(
+  Size size,
+  CutSize cutSize, {
+  required bool showDimensions,
+}) {
+  final leftSpace = showDimensions ? 44.0 : 8.0;
+  final rightSpace = showDimensions ? 12.0 : 8.0;
+  final topSpace = showDimensions ? 22.0 : 8.0;
+  final bottomSpace = showDimensions ? 34.0 : 8.0;
+  final availableWidth = math.max(10.0, size.width - leftSpace - rightSpace);
+  final availableHeight = math.max(10.0, size.height - topSpace - bottomSpace);
+  final scale = math.min(
+    availableWidth / math.max(1.0, cutSize.length),
+    availableHeight / math.max(1.0, cutSize.width),
+  );
+  final panelWidth = cutSize.length * scale;
+  final panelHeight = cutSize.width * scale;
+  return FlatPatternMetrics(
+    panelRect: Rect.fromLTWH(
+      leftSpace + (availableWidth - panelWidth) / 2,
+      topSpace + (availableHeight - panelHeight) / 2,
+      panelWidth,
+      panelHeight,
+    ),
+    scale: scale,
+  );
+}
+
 /// Dibuja una pieza plana con sus cotas reales de corte.
 ///
 /// Convención de cantos en el dibujo:
@@ -22,6 +58,7 @@ class FlatPatternPainter extends CustomPainter {
   final Color inkColor;
   final Color bandingColor;
   final bool showDimensions;
+  final bool showResizeHandle;
 
   const FlatPatternPainter({
     required this.cutSize,
@@ -31,34 +68,18 @@ class FlatPatternPainter extends CustomPainter {
     this.inkColor = const Color(0xFF3E332B),
     this.bandingColor = const Color(0xFFB26A00),
     this.showDimensions = true,
+    this.showResizeHandle = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width < 20 || size.height < 20) return;
 
-    final leftSpace = showDimensions ? 44.0 : 8.0;
-    final rightSpace = showDimensions ? 12.0 : 8.0;
-    final topSpace = showDimensions ? 22.0 : 8.0;
-    final bottomSpace = showDimensions ? 34.0 : 8.0;
-    final availableWidth = math.max(10.0, size.width - leftSpace - rightSpace);
-    final availableHeight = math.max(
-      10.0,
-      size.height - topSpace - bottomSpace,
-    );
-
-    final scale = math.min(
-      availableWidth / math.max(1, cutSize.length),
-      availableHeight / math.max(1, cutSize.width),
-    );
-    final panelWidth = cutSize.length * scale;
-    final panelHeight = cutSize.width * scale;
-    final rect = Rect.fromLTWH(
-      leftSpace + (availableWidth - panelWidth) / 2,
-      topSpace + (availableHeight - panelHeight) / 2,
-      panelWidth,
-      panelHeight,
-    );
+    final rect = calculateFlatPatternMetrics(
+      size,
+      cutSize,
+      showDimensions: showDimensions,
+    ).panelRect;
 
     final fillColor =
         Color.lerp(panelColor, Colors.white, 0.72) ??
@@ -81,19 +102,21 @@ class FlatPatternPainter extends CustomPainter {
     _drawGrain(canvas, rect);
     _drawBandedEdges(canvas, rect);
 
-    if (!showDimensions) return;
+    if (showDimensions) {
+      _drawHorizontalDimension(canvas, rect);
+      _drawVerticalDimension(canvas, rect);
+      _drawText(
+        canvas,
+        'e = ${formatMm(cutSize.thickness)} mm',
+        Offset(rect.left, rect.top - 9),
+        color: inkColor.withValues(alpha: 0.8),
+        fontSize: 9.5,
+        bold: true,
+        align: TextAlign.left,
+      );
+    }
 
-    _drawHorizontalDimension(canvas, rect);
-    _drawVerticalDimension(canvas, rect);
-    _drawText(
-      canvas,
-      'e = ${formatMm(cutSize.thickness)} mm',
-      Offset(rect.left, rect.top - 9),
-      color: inkColor.withValues(alpha: 0.8),
-      fontSize: 9.5,
-      bold: true,
-      align: TextAlign.left,
-    );
+    if (showResizeHandle) _drawResizeHandle(canvas, rect);
   }
 
   void _drawGrain(Canvas canvas, Rect rect) {
@@ -185,6 +208,32 @@ class FlatPatternPainter extends CustomPainter {
         paint,
       );
     }
+  }
+
+  void _drawResizeHandle(Canvas canvas, Rect rect) {
+    final center = rect.bottomRight;
+    canvas.drawCircle(center, 7, Paint()..color = bandingColor);
+    canvas.drawCircle(
+      center,
+      7,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    final mark = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.2;
+    canvas.drawLine(
+      center + const Offset(-3, 3),
+      center + const Offset(3, -3),
+      mark,
+    );
+    canvas.drawLine(
+      center + const Offset(0, 4),
+      center + const Offset(4, 0),
+      mark,
+    );
   }
 
   void _drawHorizontalDimension(Canvas canvas, Rect rect) {
@@ -308,5 +357,6 @@ class FlatPatternPainter extends CustomPainter {
       oldDelegate.panelColor != panelColor ||
       oldDelegate.inkColor != inkColor ||
       oldDelegate.bandingColor != bandingColor ||
-      oldDelegate.showDimensions != showDimensions;
+      oldDelegate.showDimensions != showDimensions ||
+      oldDelegate.showResizeHandle != showResizeHandle;
 }

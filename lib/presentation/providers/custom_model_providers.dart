@@ -7,9 +7,11 @@ import '../../domain/entities/furniture.dart';
 import '../../domain/entities/furniture_spec.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/services/cut_list_calculator.dart';
+import '../../domain/value_objects/cut_size.dart';
 import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
 import 'designer_providers.dart';
+import 'project_context_provider.dart';
 
 /// Borrador editable de un mueble creado desde cero.
 class CustomModelDraft {
@@ -163,6 +165,163 @@ class CustomModelController extends Notifier<CustomModelDraft> {
       ],
     );
   }
+
+  /// Escala las caras de las piezas para llenar las medidas generales actuales.
+  ///
+  /// Conserva el espesor de cada panel y escala sus dos dimensiones de corte.
+  /// La posición también se escala para mantener las piezas dentro del volumen.
+  void scalePartsToOverall() {
+    if (state.parts.isEmpty) return;
+
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var minZ = double.infinity;
+    var maxX = -double.infinity;
+    var maxY = -double.infinity;
+    var maxZ = -double.infinity;
+    for (final part in state.parts) {
+      minX = math.min(minX, part.position.x);
+      minY = math.min(minY, part.position.y);
+      minZ = math.min(minZ, part.position.z);
+      maxX = math.max(maxX, part.position.x + part.size.width);
+      maxY = math.max(maxY, part.position.y + part.size.height);
+      maxZ = math.max(maxZ, part.position.z + part.size.depth);
+    }
+
+    final currentWidth = math.max(1.0, maxX - minX);
+    final currentHeight = math.max(1.0, maxY - minY);
+    final currentDepth = math.max(1.0, maxZ - minZ);
+    final scaleX = state.overallSize.width / currentWidth;
+    final scaleY = state.overallSize.height / currentHeight;
+    final scaleZ = state.overallSize.depth / currentDepth;
+
+    state = state.copyWith(
+      parts: [
+        for (final part in state.parts)
+          _scalePart(
+            part,
+            mapping: _mappingFor(part),
+            scaleX: scaleX,
+            scaleY: scaleY,
+            scaleZ: scaleZ,
+            offset: Vector3(-minX, -minY, -minZ),
+          ),
+      ],
+    );
+  }
+}
+
+enum _PanelMapping {
+  horizontal,
+  frontVertical,
+  sideVertical,
+  frontHorizontal,
+  drawerSide,
+}
+
+_PanelMapping _mappingFor(Part part) {
+  final preferred = switch (part.kind) {
+    PartKind.sidePanel || PartKind.leg => _PanelMapping.sideVertical,
+    PartKind.door => _PanelMapping.frontVertical,
+    PartKind.drawerSide => _PanelMapping.drawerSide,
+    PartKind.drawerFront ||
+    PartKind.drawerBack ||
+    PartKind.backPanel ||
+    PartKind.plinth ||
+    PartKind.rail ||
+    PartKind.apron => _PanelMapping.frontHorizontal,
+    _ => _PanelMapping.horizontal,
+  };
+  if (_sameSize(_worldSizeForCut(part.cutSize, preferred), part.size)) {
+    return preferred;
+  }
+  for (final candidate in _PanelMapping.values) {
+    if (_sameSize(_worldSizeForCut(part.cutSize, candidate), part.size)) {
+      return candidate;
+    }
+  }
+  return preferred;
+}
+
+bool _sameSize(Size3 first, Size3 second) =>
+    (first.width - second.width).abs() < 0.01 &&
+    (first.height - second.height).abs() < 0.01 &&
+    (first.depth - second.depth).abs() < 0.01;
+
+Size3 _worldSizeForCut(CutSize cut, _PanelMapping mapping) => switch (mapping) {
+  _PanelMapping.horizontal => Size3(
+    width: cut.length,
+    height: cut.thickness,
+    depth: cut.width,
+  ),
+  _PanelMapping.frontVertical => Size3(
+    width: cut.width,
+    height: cut.length,
+    depth: cut.thickness,
+  ),
+  _PanelMapping.sideVertical => Size3(
+    width: cut.thickness,
+    height: cut.length,
+    depth: cut.width,
+  ),
+  _PanelMapping.frontHorizontal => Size3(
+    width: cut.length,
+    height: cut.width,
+    depth: cut.thickness,
+  ),
+  _PanelMapping.drawerSide => Size3(
+    width: cut.thickness,
+    height: cut.width,
+    depth: cut.length,
+  ),
+};
+
+Part _scalePart(
+  Part part, {
+  required _PanelMapping mapping,
+  required double scaleX,
+  required double scaleY,
+  required double scaleZ,
+  required Vector3 offset,
+}) {
+  final old = part.cutSize;
+  final cut = switch (mapping) {
+    _PanelMapping.horizontal => CutSize(
+      length: old.length * scaleX,
+      width: old.width * scaleZ,
+      thickness: old.thickness,
+    ),
+    _PanelMapping.frontVertical => CutSize(
+      length: old.length * scaleY,
+      width: old.width * scaleX,
+      thickness: old.thickness,
+    ),
+    _PanelMapping.sideVertical => CutSize(
+      length: old.length * scaleY,
+      width: old.width * scaleZ,
+      thickness: old.thickness,
+    ),
+    _PanelMapping.frontHorizontal => CutSize(
+      length: old.length * scaleX,
+      width: old.width * scaleY,
+      thickness: old.thickness,
+    ),
+    _PanelMapping.drawerSide => CutSize(
+      length: old.length * scaleZ,
+      width: old.width * scaleY,
+      thickness: old.thickness,
+    ),
+  };
+  final newPosition = Vector3(
+    (part.position.x + offset.x) * scaleX,
+    (part.position.y + offset.y) * scaleY,
+    (part.position.z + offset.z) * scaleZ,
+  );
+  return part.copyWith(
+    cutSize: cut,
+    size: _worldSizeForCut(cut, mapping),
+    position: newPosition,
+  );
 }
 
 final customModelProvider =
@@ -177,5 +336,6 @@ final customFurnitureProvider = Provider<Furniture>(
 final customCutListProvider = Provider<CutList>((ref) {
   final furniture = ref.watch(customFurnitureProvider);
   final catalog = ref.watch(materialCatalogProvider);
-  return const CutListCalculator().build(furniture, catalog);
+  final kerfMm = ref.watch(projectContextValueProvider)?.kerfMm ?? 3.2;
+  return const CutListCalculator().build(furniture, catalog, kerfMm: kerfMm);
 });

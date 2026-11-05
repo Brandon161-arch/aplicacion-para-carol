@@ -47,6 +47,10 @@ class CutList {
   final double totalAreaM2;
   final Map<String, double> areaByMaterial;
   final Map<String, int> piecesByMaterial;
+  final double kerfMm;
+  final double estimatedCutLengthM;
+  final double estimatedKerfLossM2;
+  final Map<String, double> kerfLossM2ByMaterial;
 
   const CutList({
     required this.items,
@@ -54,6 +58,10 @@ class CutList {
     required this.totalAreaM2,
     required this.areaByMaterial,
     required this.piecesByMaterial,
+    required this.kerfMm,
+    required this.estimatedCutLengthM,
+    required this.estimatedKerfLossM2,
+    required this.kerfLossM2ByMaterial,
   });
 }
 
@@ -64,7 +72,11 @@ class CutList {
 class CutListCalculator {
   const CutListCalculator();
 
-  CutList build(Furniture furniture, MaterialCatalog catalog) {
+  CutList build(
+    Furniture furniture,
+    MaterialCatalog catalog, {
+    double kerfMm = 3.2,
+  }) {
     final groups = <String, _CutGroup>{};
     for (final part in furniture.parts) {
       final signature = _signature(part);
@@ -74,6 +86,8 @@ class CutListCalculator {
     final items = <CutListItem>[];
     final areaByMaterial = <String, double>{};
     final piecesByMaterial = <String, int>{};
+    var estimatedCutLengthMm = 0.0;
+    final kerfLossM2ByMaterial = <String, double>{};
 
     for (final group in groups.values) {
       final representative = group.representative;
@@ -97,6 +111,16 @@ class CutListCalculator {
         bandingLengthM: group.bandingLengthMm / 1000,
       );
       items.add(item);
+      final groupCutLengthMm =
+          (2 * (representative.cutSize.length + representative.cutSize.width)) *
+          group.quantity;
+      final groupKerfLossM2 = groupCutLengthMm * kerfMm / 1000000;
+      estimatedCutLengthMm += groupCutLengthMm;
+      kerfLossM2ByMaterial.update(
+        representative.materialId,
+        (area) => area + groupKerfLossM2,
+        ifAbsent: () => groupKerfLossM2,
+      );
       areaByMaterial.update(
         item.materialId,
         (value) => value + item.areaM2,
@@ -115,6 +139,10 @@ class CutListCalculator {
       totalAreaM2: items.fold(0, (total, item) => total + item.areaM2),
       areaByMaterial: areaByMaterial,
       piecesByMaterial: piecesByMaterial,
+      kerfMm: kerfMm,
+      estimatedCutLengthM: estimatedCutLengthMm / 1000,
+      estimatedKerfLossM2: estimatedCutLengthMm * kerfMm / 1000000,
+      kerfLossM2ByMaterial: kerfLossM2ByMaterial,
     );
   }
 

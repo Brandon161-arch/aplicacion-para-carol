@@ -8,8 +8,10 @@ import '../providers/app_section_provider.dart';
 import '../providers/custom_model_providers.dart';
 import '../providers/designer_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/project_context_provider.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/flat_patterns_panel.dart';
+import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/part_detail_dialog.dart';
 import '../widgets/stat_chip.dart';
 import '../widgets/surface_card.dart';
@@ -101,7 +103,12 @@ class _ModelPreviewScreenState extends ConsumerState<ModelPreviewScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final catalog = ref.watch(materialCatalogProvider);
-    final cutList = const CutListCalculator().build(widget.furniture, catalog);
+    final projectContext = ref.watch(projectContextValueProvider);
+    final cutList = const CutListCalculator().build(
+      widget.furniture,
+      catalog,
+      kerfMm: projectContext?.kerfMm ?? 3.2,
+    );
     final furniture = widget.furniture;
 
     void openDetail(CutListItem item) {
@@ -165,6 +172,8 @@ class _ModelPreviewScreenState extends ConsumerState<ModelPreviewScreen> {
                 catalog: catalog,
                 onItemTap: openDetail,
               ),
+              const SizedBox(height: 20),
+              FurnitureEstimatePanel(furniture: furniture),
             ],
           );
 

@@ -10,18 +10,42 @@ import '../../domain/generators/furniture_generator.dart';
 import '../../domain/services/cut_list_calculator.dart';
 import '../../domain/services/furniture_validator.dart';
 import 'pricing_providers.dart';
+import 'project_context_provider.dart';
 
 /// Catálogo de materiales mezclado con los precios editables del usuario.
 final materialCatalogProvider = Provider<MaterialCatalog>((ref) {
+  final context = ref.watch(projectContextValueProvider);
   final overrides =
       ref.watch(localPricingProvider).asData?.value.materialPriceOverrides ??
       const <String, int>{};
-  if (overrides.isEmpty) return sampleMaterialCatalog;
+  final country = context?.country;
+  if (overrides.isEmpty && (country?.materialPrices.isEmpty ?? true)) {
+    return sampleMaterialCatalog;
+  }
   return MaterialCatalog([
     for (final material in sampleMaterialCatalog.materials)
-      overrides.containsKey(material.id)
-          ? material.copyWith(priceCents: overrides[material.id])
-          : material,
+      () {
+        final regionalPrice = country?.materialPrices[material.id];
+        final localPrice = country == null || country.code == 'CO'
+            ? overrides[material.id]
+            : null;
+        return material.copyWith(
+          priceCents:
+              localPrice ??
+              regionalPrice?.priceCents ??
+              (country != null && !country.priceDataAvailable
+                  ? 0
+                  : material.priceCents),
+          sheetSize: regionalPrice?.sheetSize == null
+              ? material.sheetSize
+              : SheetSize(
+                  widthMm: regionalPrice!.sheetSize!.widthMm,
+                  heightMm: regionalPrice.sheetSize!.heightMm,
+                ),
+          priceSource: regionalPrice?.source ?? material.priceSource,
+          priceNote: regionalPrice?.note ?? material.priceNote,
+        );
+      }(),
   ]);
 });
 
@@ -86,7 +110,8 @@ final furnitureProvider = Provider<Furniture>((ref) {
 final cutListProvider = Provider<CutList>((ref) {
   final furniture = ref.watch(furnitureProvider);
   final catalog = ref.watch(materialCatalogProvider);
-  return const CutListCalculator().build(furniture, catalog);
+  final kerfMm = ref.watch(projectContextValueProvider)?.kerfMm ?? 3.2;
+  return const CutListCalculator().build(furniture, catalog, kerfMm: kerfMm);
 });
 
 final validationProvider = Provider<List<ValidationIssue>>((ref) {

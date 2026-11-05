@@ -4,6 +4,7 @@ import '../entities/hardware_price_catalog.dart';
 import '../entities/hardware_requirement.dart';
 import '../entities/material.dart';
 import '../entities/pricing_settings.dart';
+import '../entities/regional_catalog.dart';
 import 'cost_calculator.dart';
 import 'cut_list_calculator.dart';
 import 'hardware_calculator.dart';
@@ -29,8 +30,16 @@ class FurnitureEstimator {
     required MaterialCatalog catalog,
     required HardwarePriceCatalog hardwarePrices,
     required PricingSettings pricingSettings,
+    double taxPercent = 0,
+    double kerfMm = 3.2,
+    List<CutPriceTier> cutPriceTiers = const [],
+    String pricingNote = 'Precios locales no configurados.',
   }) {
-    final cutList = const CutListCalculator().build(furniture, catalog);
+    final cutList = const CutListCalculator().build(
+      furniture,
+      catalog,
+      kerfMm: kerfMm,
+    );
     final hardware = const HardwareCalculator().calculate(
       furniture,
       hardwarePrices,
@@ -40,6 +49,9 @@ class FurnitureEstimator {
       catalog: catalog,
       hardware: hardware,
       settings: pricingSettings,
+      taxPercent: taxPercent,
+      cutPriceTiers: cutPriceTiers,
+      pricingNote: pricingNote,
     );
     return FurnitureEstimate(
       cutList: cutList,

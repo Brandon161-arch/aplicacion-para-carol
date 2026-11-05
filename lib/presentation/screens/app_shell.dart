@@ -63,7 +63,7 @@ class AppShell extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             title: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 Container(
                   width: 30,
@@ -79,17 +79,23 @@ class AppShell extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text('MuebleCAD'),
+                const Expanded(
+                  child: Text(
+                    'Mueble Maestro',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             actions: [
               IconButton(
-                tooltip: 'Acerca de MuebleCAD',
+                tooltip: 'Acerca de Mueble Maestro',
                 icon: const Icon(Icons.info_outline),
                 onPressed: () => showAboutDialog(
                   context: context,
-                  applicationName: 'MuebleCAD',
-                  applicationVersion: 'Fase 2',
+                  applicationName: 'Mueble Maestro',
+                  applicationVersion: 'MVP',
                   applicationLegalese: 'Diseño paramétrico de muebles.',
                   children: const [
                     SizedBox(height: 8),

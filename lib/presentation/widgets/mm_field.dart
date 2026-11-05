@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/units.dart';
+import '../../domain/value_objects/measurement_unit.dart';
 
 /// Campo numérico en milímetros que sincroniza su texto con el modelo.
 ///
@@ -13,6 +13,7 @@ class MmField extends StatefulWidget {
   final double value;
   final ValueChanged<double> onChanged;
   final String? helperText;
+  final MeasurementUnit unit;
 
   const MmField({
     super.key,
@@ -21,6 +22,7 @@ class MmField extends StatefulWidget {
     required this.onChanged,
     this.fieldKey,
     this.helperText,
+    this.unit = MeasurementUnit.millimeter,
   });
 
   @override
@@ -34,7 +36,9 @@ class _MmFieldState extends State<MmField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: formatMm(widget.value));
+    _controller = TextEditingController(
+      text: widget.unit.formatValue(widget.value),
+    );
     _focusNode = FocusNode();
   }
 
@@ -42,8 +46,9 @@ class _MmFieldState extends State<MmField> {
   void didUpdateWidget(covariant MmField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_focusNode.hasFocus &&
-        (widget.value - oldWidget.value).abs() > 0.001) {
-      _controller.text = formatMm(widget.value);
+        ((widget.value - oldWidget.value).abs() > 0.001 ||
+            widget.unit != oldWidget.unit)) {
+      _controller.text = widget.unit.formatValue(widget.value);
     }
   }
 
@@ -57,7 +62,7 @@ class _MmFieldState extends State<MmField> {
   void _handleChanged(String text) {
     final parsed = double.tryParse(text.trim().replaceAll(',', '.'));
     if (parsed == null || !parsed.isFinite) return;
-    widget.onChanged(parsed);
+    widget.onChanged(widget.unit.toMillimeters(parsed));
   }
 
   @override
@@ -72,7 +77,7 @@ class _MmFieldState extends State<MmField> {
       decoration: InputDecoration(
         labelText: widget.label,
         helperText: widget.helperText,
-        suffixText: 'mm',
+        suffixText: widget.unit.code,
       ),
     );
   }

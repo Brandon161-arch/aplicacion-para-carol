@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/material.dart' as domain;
+import '../../domain/entities/hardware_item.dart';
 import '../providers/designer_providers.dart';
 import '../providers/pricing_providers.dart';
 
@@ -22,6 +23,13 @@ Future<void> showPricingEditorDialog(
     for (final material in catalog.materials)
       material.id: TextEditingController(
         text: (material.priceCents / 100).round().toString(),
+      ),
+  };
+  final hardwareCatalog = ref.read(hardwarePriceCatalogProvider);
+  final hardwareControllers = <HardwareKind, TextEditingController>{
+    for (final kind in HardwareKind.values)
+      kind: TextEditingController(
+        text: (hardwareCatalog.priceFor(kind) / 100).round().toString(),
       ),
   };
   final wasteController = TextEditingController(
@@ -57,6 +65,11 @@ Future<void> showPricingEditorDialog(
                   final value = _parseCop(controllers[material.id]!);
                   if (value != null) overrides[material.id] = value;
                 }
+                final hardwareOverrides = <String, int>{};
+                for (final kind in HardwareKind.values) {
+                  final value = _parseCop(hardwareControllers[kind]!);
+                  if (value != null) hardwareOverrides[kind.name] = value;
+                }
                 final currentSettings = pricingData.settings;
                 final settings = currentSettings.copyWith(
                   wastePercent:
@@ -79,6 +92,7 @@ Future<void> showPricingEditorDialog(
                     .read(localPricingProvider.notifier)
                     .updateAll(
                       materialPriceOverrides: overrides,
+                      hardwarePriceOverrides: hardwareOverrides,
                       settings: settings,
                     );
                 if (!dialogContext.mounted) return;
@@ -151,6 +165,26 @@ Future<void> showPricingEditorDialog(
                           ],
                           const Divider(height: 28),
                           Text(
+                            'Herrajes y tornillos',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Precios unitarios de referencia; puedes cambiarlos según tu proveedor.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          for (final kind in HardwareKind.values) ...[
+                            _HardwarePriceRow(
+                              kind: kind,
+                              controller: hardwareControllers[kind]!,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          const Divider(height: 28),
+                          Text(
                             'Servicios y desperdicio',
                             style: theme.textTheme.titleMedium,
                           ),
@@ -164,7 +198,7 @@ Future<void> showPricingEditorDialog(
                               );
                               final cut = _PriceNumberField(
                                 controller: cutController,
-                                label: 'Corte manual por lámina',
+                                label: 'Corte / lámina',
                                 suffix: 'COP',
                                 helper: 'Vacío = tarifa de referencia Madecentro por rango de piezas.',
                               );
@@ -193,24 +227,35 @@ Future<void> showPricingEditorDialog(
                             style: theme.textTheme.titleSmall,
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _PriceNumberField(
-                                  controller: laborRateController,
-                                  label: 'Tarifa por hora',
-                                  suffix: 'COP',
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _PriceNumberField(
-                                  controller: laborHoursController,
-                                  label: 'Horas estimadas',
-                                  suffix: 'h',
-                                ),
-                              ),
-                            ],
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final rate = _PriceNumberField(
+                                controller: laborRateController,
+                                label: 'Tarifa por hora',
+                                suffix: 'COP',
+                              );
+                              final hours = _PriceNumberField(
+                                controller: laborHoursController,
+                                label: 'Horas estimadas',
+                                suffix: 'h',
+                              );
+                              if (constraints.maxWidth < 560) {
+                                return Column(
+                                  children: [
+                                    rate,
+                                    const SizedBox(height: 10),
+                                    hours,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                children: [
+                                  Expanded(child: rate),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: hours),
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: 14),
                           Text(
@@ -259,6 +304,9 @@ Future<void> showPricingEditorDialog(
     for (final controller in controllers.values) {
       controller.dispose();
     }
+    for (final controller in hardwareControllers.values) {
+      controller.dispose();
+    }
     wasteController.dispose();
     cutController.dispose();
     laborRateController.dispose();
@@ -275,13 +323,17 @@ class _MaterialPriceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final source = material.priceSource;
+    final source = [
+      material.priceUnit.label,
+      material.priceSource,
+      material.priceNote,
+    ].whereType<String>().where((value) => value.isNotEmpty).join(' · ');
     final label = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(material.name, style: theme.textTheme.labelLarge),
         Text(
-          '${material.priceUnit.label}${source == null ? '' : ' · $source'}',
+          source,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -323,6 +375,43 @@ class _MaterialPriceRow extends StatelessWidget {
                 decoration: const InputDecoration(labelText: 'Precio COP'),
               ),
             ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HardwarePriceRow extends StatelessWidget {
+  final HardwareKind kind;
+  final TextEditingController controller;
+
+  const _HardwarePriceRow({required this.kind, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final field = TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: const InputDecoration(labelText: 'Precio COP', isDense: true),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 480) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(kind.label, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 6),
+              field,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: Text(kind.label)),
+            const SizedBox(width: 10),
+            SizedBox(width: 180, child: field),
           ],
         );
       },

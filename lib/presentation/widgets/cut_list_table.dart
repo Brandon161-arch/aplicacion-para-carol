@@ -53,6 +53,10 @@ class CutListTable extends StatelessWidget {
         icon: Icons.square_foot,
         label: '${formatM2(cutList.totalAreaM2)} m²',
       ),
+      StatChip(
+        icon: Icons.content_cut,
+        label: 'Kerf ${formatMm(cutList.kerfMm)} mm',
+      ),
     ];
 
     return SurfaceCard(
@@ -83,6 +87,13 @@ class CutListTable extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
+          Text(
+            'Recorrido de corte estimado: ${formatMeters(cutList.estimatedCutLengthM)} m · pérdida por kerf: ${formatM2(cutList.estimatedKerfLossM2)} m². Es una aproximación por perímetros; todavía no es un plano de nesting.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: DecoratedBox(

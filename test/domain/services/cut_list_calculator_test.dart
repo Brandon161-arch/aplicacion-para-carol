@@ -87,6 +87,26 @@ void main() {
       expect(cutList.piecesByMaterial['mdf_5'], 2);
     });
 
+    test('estima material consumido por kerf sin alterar medidas de corte', () {
+      final kerf4 = const CutListCalculator().build(
+        furniture,
+        sampleMaterialCatalog,
+        kerfMm: 4,
+      );
+
+      expect(cutList.kerfMm, 3.2);
+      expect(cutList.estimatedCutLengthM, greaterThan(0));
+      expect(cutList.estimatedKerfLossM2, greaterThan(0));
+      expect(
+        kerf4.estimatedKerfLossM2,
+        greaterThan(cutList.estimatedKerfLossM2),
+      );
+      expect(
+        kerf4.items.first.cutSize.length,
+        cutList.items.first.cutSize.length,
+      );
+    });
+
     test('las filas indican el material y la veta', () {
       final puerta = cutList.items.firstWhere((item) => item.name == 'Puerta');
 

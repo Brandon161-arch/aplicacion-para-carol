@@ -29,7 +29,13 @@ class CostReport {
   final int hardwareTotalCents;
   final int laborTotalCents;
   final int grandTotalCents;
+  final double taxPercent;
+  final int taxTotalCents;
+  final int totalWithTaxCents;
   final double cutAreaM2;
+  final double estimatedKerfLossM2;
+  final double estimatedCutLengthM;
+  final double kerfMm;
   final double estimatedWasteAreaM2;
   final int estimatedSheets;
   final String currency;
@@ -44,7 +50,13 @@ class CostReport {
     required this.hardwareTotalCents,
     required this.laborTotalCents,
     required this.grandTotalCents,
+    this.taxPercent = 0,
+    this.taxTotalCents = 0,
+    this.totalWithTaxCents = 0,
     required this.cutAreaM2,
+    this.estimatedKerfLossM2 = 0,
+    this.estimatedCutLengthM = 0,
+    this.kerfMm = 3.2,
     required this.estimatedWasteAreaM2,
     required this.estimatedSheets,
     required this.currency,

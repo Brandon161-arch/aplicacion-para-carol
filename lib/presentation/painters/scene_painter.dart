@@ -34,7 +34,6 @@ class ScenePainter extends CustomPainter {
     canvas.drawRect(backgroundRect, background);
 
     _drawFloorGrid(canvas, size);
-    if (showBounds) _drawOverallBounds(canvas, size);
 
     final projection = const SceneProjector().project(
       furniture: furniture,
@@ -68,6 +67,7 @@ class ScenePainter extends CustomPainter {
         face.partId == selectedPartId ? selectedStroke : strokePaint,
       );
     }
+    if (showBounds) _drawOverallBounds(canvas, size);
   }
 
   void _drawOverallBounds(Canvas canvas, Size size) {
@@ -97,11 +97,11 @@ class ScenePainter extends CustomPainter {
     ];
 
     final linePaint = Paint()
-      ..color = const Color(0x2EFFFFFF)
-      ..strokeWidth = 1.0;
-    final floorPaint = Paint()
-      ..color = const Color(0x55FFFFFF)
+      ..color = const Color(0x77FFFFFF)
       ..strokeWidth = 1.2;
+    final floorPaint = Paint()
+      ..color = const Color(0xAAFFFFFF)
+      ..strokeWidth = 1.6;
 
     void drawEdge(int a, int b, Paint paint) {
       final start = projected[a];

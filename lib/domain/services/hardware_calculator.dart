@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../entities/furniture.dart';
 import '../entities/hardware_item.dart';
 import '../entities/hardware_price_catalog.dart';
@@ -5,6 +7,7 @@ import '../entities/hardware_requirement.dart';
 import '../entities/joint.dart';
 import '../entities/mechanism.dart';
 import '../entities/part.dart';
+import '../value_objects/vector3.dart';
 
 /// Calcula cantidades de herrajes y da una guía de ubicación.
 ///
@@ -20,6 +23,9 @@ class HardwareCalculator {
     final grouped = <String, _RequirementAccumulator>{};
     final doorIds = <String>{};
     final drawerFrontIds = <String>{};
+    final explicitJointPairs = furniture.joints
+        .map((joint) => _pairKey(joint.partAId, joint.partBId))
+        .toSet();
 
     void add({
       required HardwareKind kind,
@@ -52,8 +58,8 @@ class HardwareCalculator {
       final partA = furniture.partById(joint.partAId);
       final partB = furniture.partById(joint.partBId);
       final location =
-          '${partA?.name ?? joint.partAId} ↔ '
-          '${partB?.name ?? joint.partBId}';
+          '${partA == null ? joint.partAId : _displayPartName(furniture, partA)} ↔ '
+          '${partB == null ? joint.partBId : _displayPartName(furniture, partB)}';
       add(
         kind: fastener.kind,
         name: fastener.label,
@@ -64,12 +70,62 @@ class HardwareCalculator {
       );
     }
 
+    // En modelos creados a mano, infiere tornillos donde dos paneles
+    // estructurales están en contacto, salvo que ya exista una unión explícita.
+    final structuralParts = furniture.parts
+        .where(_isInferableStructuralPart)
+        .toList(growable: false);
+    for (
+      var firstIndex = 0;
+      firstIndex < structuralParts.length;
+      firstIndex++
+    ) {
+      for (
+        var secondIndex = firstIndex + 1;
+        secondIndex < structuralParts.length;
+        secondIndex++
+      ) {
+        final first = structuralParts[firstIndex];
+        final second = structuralParts[secondIndex];
+        if (explicitJointPairs.contains(_pairKey(first.id, second.id))) {
+          continue;
+        }
+        final contactLength = _touchingContactLength(first, second);
+        if (contactLength == null) continue;
+
+        final minThickness = math.min(
+          first.cutSize.thickness,
+          second.cutSize.thickness,
+        );
+        final fastenerKind = minThickness >= 15
+            ? HardwareKind.confirmat
+            : HardwareKind.screw;
+        final fastenerSpec = minThickness >= 15
+            ? 'Confirmat 7 x 50 mm'
+            : 'Tornillo para madera 4 x 40 mm';
+        final count = math.max(2, (contactLength / 250).ceil() + 1);
+        add(
+          kind: fastenerKind,
+          name: fastenerSpec,
+          spec: fastenerSpec,
+          quantity: count,
+          location:
+              '${_displayPartName(furniture, first)} ↔ ${_displayPartName(furniture, second)}',
+          note:
+              'Unión inferida por contacto; repartir aprox. cada 250 mm. '
+              'Verificar antes de perforar.',
+        );
+      }
+    }
+
     // Bisagras, correderas y sus tornillos se derivan de los mecanismos.
     for (final mechanism in furniture.mechanisms) {
       if (mechanism is HingedDoorMechanism) {
         doorIds.add(mechanism.doorPartId);
         final door = furniture.partById(mechanism.doorPartId);
-        final doorName = door?.name ?? 'Puerta';
+        final doorName = door == null
+            ? 'Puerta'
+            : _displayPartName(furniture, door);
         final hingeSpec = mechanism.hingeSpec ?? 'Bisagra de cazoleta 35 mm';
         add(
           kind: mechanism.hingeKind,
@@ -77,7 +133,7 @@ class HardwareCalculator {
           spec: hingeSpec,
           quantity: mechanism.hingeCount,
           location:
-              '$doorName · bisagras al lado ${mechanism.hingeSide.label.toLowerCase()}',
+              '$doorName · bisagras en el lado ${_hingeSideName(mechanism.hingeSide)}',
           note: _hingePlacementNote(mechanism.hingeCount),
         );
         add(
@@ -107,7 +163,9 @@ class HardwareCalculator {
       } else if (mechanism is DrawerMechanism) {
         drawerFrontIds.add(mechanism.frontPartId);
         final front = furniture.partById(mechanism.frontPartId);
-        final drawerName = front?.name ?? 'Cajón';
+        final drawerName = front == null
+            ? 'Cajón'
+            : _displayPartName(furniture, front);
         final slideSpec = mechanism.slideSpec ?? 'Corredera telescópica';
         add(
           kind: mechanism.slideKind,
@@ -153,7 +211,8 @@ class HardwareCalculator {
         name: 'Bisagra de cazoleta 35 mm',
         spec: 'Bisagra 35 mm, 110°',
         quantity: door.size.height <= 900 ? 2 : 3,
-        location: '${door.name} · lado de montaje a definir',
+        location:
+            '${_displayPartName(furniture, door)} · lado de montaje a definir',
         note: 'Aprox. 100 mm desde arriba y abajo.',
       );
       add(
@@ -161,7 +220,7 @@ class HardwareCalculator {
         name: 'Tornillo para bisagra',
         spec: '3,5 x 16 mm',
         quantity: (door.size.height <= 900 ? 2 : 3) * 4,
-        location: 'Bisagras de ${door.name}',
+        location: 'Bisagras de ${_displayPartName(furniture, door)}',
         note: '4 tornillos por bisagra.',
       );
       add(
@@ -169,7 +228,7 @@ class HardwareCalculator {
         name: 'Tirador',
         spec: 'Tirador estándar',
         quantity: 1,
-        location: '${door.name} · lado de apertura',
+        location: '${_displayPartName(furniture, door)} · lado de apertura',
         note: 'Centrar a la altura de uso.',
       );
       add(
@@ -177,7 +236,7 @@ class HardwareCalculator {
         name: 'Tornillo para tirador',
         spec: 'M4 (largo según tirador)',
         quantity: 2,
-        location: 'Tirador de ${door.name}',
+        location: 'Tirador de ${_displayPartName(furniture, door)}',
         note: '2 tornillos por tirador.',
       );
     }
@@ -189,7 +248,8 @@ class HardwareCalculator {
         name: 'Corredera telescópica',
         spec: 'Largo según fondo del cajón',
         quantity: 2,
-        location: '${front.name} · una corredera a cada lado',
+        location:
+            '${_displayPartName(furniture, front)} · una corredera a cada lado',
         note: 'Medir el fondo útil antes de comprar.',
       );
       add(
@@ -205,7 +265,7 @@ class HardwareCalculator {
         name: 'Tirador',
         spec: 'Tirador estándar',
         quantity: 1,
-        location: '${front.name} · centrado',
+        location: '${_displayPartName(furniture, front)} · centrado',
         note: 'Ubicar a una altura cómoda.',
       );
       add(
@@ -226,7 +286,7 @@ class HardwareCalculator {
         name: 'Soporte de estante',
         spec: 'Perno 5 mm',
         quantity: 4,
-        location: 'Estante ${index + 1}',
+        location: _displayPartName(furniture, shelves[index]),
         note: '2 soportes por lateral, debajo del estante.',
       );
     }
@@ -266,7 +326,10 @@ class HardwareCalculator {
     // Herrajes cargados manualmente por el usuario.
     for (final item in furniture.manualHardware) {
       final location = item.partIds
-          .map((id) => furniture.partById(id)?.name ?? id)
+          .map((id) {
+            final part = furniture.partById(id);
+            return part == null ? id : _displayPartName(furniture, part);
+          })
           .join(', ');
       add(
         kind: item.kind,
@@ -342,6 +405,102 @@ class HardwareCalculator {
       return 'Aprox. 100 mm desde los extremos y una bisagra al centro.';
     }
     return 'Aprox. 100 mm desde los extremos y repartir las demás uniformemente.';
+  }
+
+  String _hingeSideName(HingeSide side) => switch (side) {
+    HingeSide.left => 'izquierdo',
+    HingeSide.right => 'derecho',
+    HingeSide.top => 'superior',
+    HingeSide.bottom => 'inferior',
+  };
+
+  String _displayPartName(Furniture furniture, Part part) {
+    if (part.kind == PartKind.sidePanel) {
+      return part.center.x < furniture.overallSize.width / 2
+          ? 'Lateral izquierdo'
+          : 'Lateral derecho';
+    }
+    if (part.kind == PartKind.door) {
+      return part.center.x < furniture.overallSize.width / 2
+          ? 'Puerta izquierda'
+          : 'Puerta derecha';
+    }
+    if (part.kind == PartKind.drawerSide) {
+      return part.center.x < furniture.overallSize.width / 2
+          ? 'Lado de cajón izquierdo'
+          : 'Lado de cajón derecho';
+    }
+    if (part.kind == PartKind.shelf || part.kind == PartKind.drawerFront) {
+      final sameKind = furniture.partsOfKind(part.kind).toList()
+        ..sort((a, b) => a.position.y.compareTo(b.position.y));
+      if (sameKind.length > 1) {
+        final index = sameKind.indexWhere((item) => item.id == part.id);
+        final level = index == 0
+            ? 'inferior'
+            : index == sameKind.length - 1
+            ? 'superior'
+            : 'intermedio';
+        return '${part.name} ${index + 1} ($level)';
+      }
+    }
+    if (part.kind == PartKind.backPanel) return 'Fondo posterior';
+    return part.name;
+  }
+
+  bool _isInferableStructuralPart(Part part) => switch (part.kind) {
+    PartKind.sidePanel ||
+    PartKind.topPanel ||
+    PartKind.bottomPanel ||
+    PartKind.divider ||
+    PartKind.plinth ||
+    PartKind.desktop ||
+    PartKind.rail ||
+    PartKind.apron => true,
+    _ => false,
+  };
+
+  String _pairKey(String a, String b) =>
+      a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
+
+  double? _touchingContactLength(Part a, Part b) {
+    const toleranceMm = 1.0;
+    final aMin = a.position;
+    final aMax =
+        a.position + Vector3(a.size.width, a.size.height, a.size.depth);
+    final bMin = b.position;
+    final bMax =
+        b.position + Vector3(b.size.width, b.size.height, b.size.depth);
+
+    double overlap(double minA, double maxA, double minB, double maxB) =>
+        math.min(maxA, maxB) - math.max(minA, minB);
+
+    final touchesX =
+        (aMax.x - bMin.x).abs() <= toleranceMm ||
+        (bMax.x - aMin.x).abs() <= toleranceMm;
+    if (touchesX) {
+      final overlapY = overlap(aMin.y, aMax.y, bMin.y, bMax.y);
+      final overlapZ = overlap(aMin.z, aMax.z, bMin.z, bMax.z);
+      if (overlapY > 5 && overlapZ > 5) return math.max(overlapY, overlapZ);
+    }
+
+    final touchesY =
+        (aMax.y - bMin.y).abs() <= toleranceMm ||
+        (bMax.y - aMin.y).abs() <= toleranceMm;
+    if (touchesY) {
+      final overlapX = overlap(aMin.x, aMax.x, bMin.x, bMax.x);
+      final overlapZ = overlap(aMin.z, aMax.z, bMin.z, bMax.z);
+      if (overlapX > 5 && overlapZ > 5) return math.max(overlapX, overlapZ);
+    }
+
+    final touchesZ =
+        (aMax.z - bMin.z).abs() <= toleranceMm ||
+        (bMax.z - aMin.z).abs() <= toleranceMm;
+    if (touchesZ) {
+      final overlapX = overlap(aMin.x, aMax.x, bMin.x, bMax.x);
+      final overlapY = overlap(aMin.y, aMax.y, bMin.y, bMax.y);
+      if (overlapX > 5 && overlapY > 5) return math.max(overlapX, overlapY);
+    }
+    return null;
   }
 }
 

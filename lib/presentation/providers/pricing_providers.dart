@@ -4,15 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/seeds/hardware_price_seed.dart';
+import '../../domain/entities/hardware_item.dart';
 import '../../domain/entities/hardware_price_catalog.dart';
 import '../../domain/entities/pricing_settings.dart';
+import 'project_context_provider.dart';
 
 class LocalPricingData {
   final Map<String, int> materialPriceOverrides;
+  final Map<String, int> hardwarePriceOverrides;
   final PricingSettings settings;
 
   const LocalPricingData({
     this.materialPriceOverrides = const {},
+    this.hardwarePriceOverrides = const {},
     this.settings = const PricingSettings(),
   });
 }
@@ -40,12 +44,22 @@ class LocalPricingController extends AsyncNotifier<LocalPricingData> {
           }
         }
       }
+      final rawHardwarePrices = data['hardwarePrices'];
+      final hardwarePrices = <String, int>{};
+      if (rawHardwarePrices is Map) {
+        for (final entry in rawHardwarePrices.entries) {
+          if (entry.value is num) {
+            hardwarePrices[entry.key.toString()] = (entry.value as num).round();
+          }
+        }
+      }
       final rawSettings = data['settings'];
       final settings = rawSettings is Map
           ? _settingsFromJson(rawSettings.cast<String, dynamic>())
           : const PricingSettings();
       return LocalPricingData(
         materialPriceOverrides: prices,
+        hardwarePriceOverrides: hardwarePrices,
         settings: settings,
       );
     } on FormatException {
@@ -55,11 +69,15 @@ class LocalPricingController extends AsyncNotifier<LocalPricingData> {
 
   Future<void> updateAll({
     required Map<String, int> materialPriceOverrides,
+    Map<String, int> hardwarePriceOverrides = const {},
     required PricingSettings settings,
   }) async {
     final updated = LocalPricingData(
       materialPriceOverrides: Map<String, int>.unmodifiable(
         materialPriceOverrides,
+      ),
+      hardwarePriceOverrides: Map<String, int>.unmodifiable(
+        hardwarePriceOverrides,
       ),
       settings: settings,
     );
@@ -70,11 +88,13 @@ class LocalPricingController extends AsyncNotifier<LocalPricingData> {
 
   Future<void> reset() => updateAll(
     materialPriceOverrides: const {},
+    hardwarePriceOverrides: const {},
     settings: const PricingSettings(),
   );
 
   Map<String, dynamic> _toJson(LocalPricingData data) => {
     'materialPrices': data.materialPriceOverrides,
+    'hardwarePrices': data.hardwarePriceOverrides,
     'settings': {
       'currency': data.settings.currency,
       'wastePercent': data.settings.wastePercent,
@@ -104,12 +124,34 @@ final localPricingProvider =
       LocalPricingController.new,
     );
 
-final pricingSettingsProvider = Provider<PricingSettings>(
-  (ref) =>
+final pricingSettingsProvider = Provider<PricingSettings>((ref) {
+  final stored =
       ref.watch(localPricingProvider).asData?.value.settings ??
-      const PricingSettings(),
-);
+      const PricingSettings();
+  final country = ref.watch(projectContextValueProvider)?.country;
+  if (country == null) return stored;
+  return stored.copyWith(
+    currency: country.currency,
+    laborRateCentsPerHour: stored.laborRateCentsPerHour > 0
+        ? stored.laborRateCentsPerHour
+        : country.laborRateCentsPerHour,
+  );
+});
 
-final hardwarePriceCatalogProvider = Provider<HardwarePriceCatalog>(
-  (ref) => sampleHardwarePrices,
-);
+final hardwarePriceCatalogProvider = Provider<HardwarePriceCatalog>((ref) {
+  final overrides =
+      ref.watch(localPricingProvider).asData?.value.hardwarePriceOverrides ??
+      const <String, int>{};
+  final country = ref.watch(projectContextValueProvider)?.country;
+  return HardwarePriceCatalog({
+    for (final kind in HardwareKind.values)
+      kind:
+          ((country == null || country.code == 'CO')
+              ? overrides[kind.name]
+              : null) ??
+          country?.hardwarePricesCents[kind.name] ??
+          (country != null && !country.priceDataAvailable
+              ? 0
+              : sampleHardwarePrices.priceFor(kind)),
+  });
+});

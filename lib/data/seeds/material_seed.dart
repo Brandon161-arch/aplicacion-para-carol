@@ -15,7 +15,8 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     priceCents: 13490000,
     edgeBandingPricePerMeterCents: 120000,
     priceSource: 'Homecenter Colombia, MDF Trupan 15 mm, lámina 1830 x 2440 mm',
-    priceNote: 'Precio de referencia observado: COP 134.900 por lámina.',
+    priceNote:
+        'Precio observado: COP 134.900 por lámina; verificar stock local.',
   ),
   Material(
     id: 'mdf_18',
@@ -26,8 +27,9 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
     priceUnit: PriceUnit.perSheet,
     priceCents: 16990000,
     edgeBandingPricePerMeterCents: 120000,
-    priceSource: 'Estimación basada en tableros MDF crudos de venta minorista',
-    priceNote: 'Confirmar precio y formato con el proveedor local.',
+    priceSource: 'Homecenter Colombia, MDF Trupan 18 mm, lámina 1830 x 2440 mm',
+    priceNote:
+        'Precio observado: COP 169.900 por lámina; sujeto a stock y ciudad.',
   ),
   Material(
     id: 'mdf_25',
@@ -53,7 +55,7 @@ const MaterialCatalog sampleMaterialCatalog = MaterialCatalog([
   ),
   Material(
     id: 'particleboard_18',
-    name: 'Aglomerado 18 mm',
+    name: 'Aglomerado melamínico 18 mm',
     category: MaterialCategory.particleboard,
     thicknessesMm: [18],
     sheetSize: SheetSize(widthMm: 2440, heightMm: 2150),

@@ -6,7 +6,9 @@ import '../providers/designer_providers.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/dimension_panel.dart';
 import '../widgets/flat_patterns_panel.dart';
+import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/part_detail_dialog.dart';
+import '../widgets/regional_material_panel.dart';
 import '../widgets/viewer_card.dart';
 
 class DesignerScreen extends ConsumerWidget {
@@ -19,6 +21,13 @@ class DesignerScreen extends ConsumerWidget {
     final catalog = ref.watch(materialCatalogProvider);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    const dimensionControls = Column(
+      children: [
+        DimensionPanel(),
+        SizedBox(height: 14),
+        RegionalMaterialPanel(),
+      ],
+    );
 
     void openDetail(BuildContext context, CutListItem item) {
       final part = furniture.partById(item.partIds.first);
@@ -62,6 +71,8 @@ class DesignerScreen extends ConsumerWidget {
               catalog: catalog,
               onItemTap: (item) => openDetail(context, item),
             ),
+            const SizedBox(height: 20),
+            FurnitureEstimatePanel(furniture: furniture),
           ],
         );
 
@@ -69,17 +80,13 @@ class DesignerScreen extends ConsumerWidget {
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(width: 360, child: DimensionPanel()),
+                  const SizedBox(width: 360, child: dimensionControls),
                   const SizedBox(width: 20),
                   Expanded(child: main),
                 ],
               )
             : Column(
-                children: [
-                  const DimensionPanel(),
-                  const SizedBox(height: 20),
-                  main,
-                ],
+                children: [dimensionControls, const SizedBox(height: 20), main],
               );
 
         return SingleChildScrollView(

@@ -6,7 +6,7 @@ import 'package:mueble_cad/domain/services/cut_list_calculator.dart';
 void main() {
   final presets = buildPresetFurniture();
 
-  test('hay al menos seis modelos de ejemplo con identificadores únicos', () {
+  test('hay al menos trece modelos de ejemplo con identificadores únicos', () {
     expect(presets.length, greaterThanOrEqualTo(12));
     expect(presets.map((preset) => preset.id).toSet().length, presets.length);
   });

@@ -5,8 +5,12 @@ import '../../core/constants/units.dart';
 import '../../data/seeds/preset_furniture.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/saved_furniture.dart';
+import '../../domain/services/furniture_estimator.dart';
 import '../providers/app_section_provider.dart';
+import '../providers/designer_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/pricing_providers.dart';
+import '../providers/project_context_provider.dart';
 import '../widgets/mini_furniture_preview.dart';
 import '../widgets/surface_card.dart';
 import 'model_preview_screen.dart';
@@ -394,8 +398,8 @@ class _ModelGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: children.length,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 330,
-        mainAxisExtent: 310,
+        maxCrossAxisExtent: 380,
+        mainAxisExtent: 340,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -404,7 +408,7 @@ class _ModelGrid extends StatelessWidget {
   }
 }
 
-class _ModelCard extends StatelessWidget {
+class _ModelCard extends ConsumerWidget {
   final Furniture furniture;
   final String name;
   final String description;
@@ -424,9 +428,22 @@ class _ModelCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final projectContext = ref.watch(projectContextValueProvider);
+    final country = projectContext?.country;
+    final estimate = const FurnitureEstimator().calculate(
+      furniture: furniture,
+      catalog: ref.watch(materialCatalogProvider),
+      hardwarePrices: ref.watch(hardwarePriceCatalogProvider),
+      pricingSettings: ref.watch(pricingSettingsProvider),
+      taxPercent: country?.standardTaxPercent ?? 0,
+      kerfMm: projectContext?.kerfMm ?? 3.2,
+      cutPriceTiers: country?.cutPriceTiers ?? const [],
+      pricingNote: country?.pricingNote ?? 'Precios locales no configurados.',
+    );
+    final hasLocalPrices = country?.priceDataAvailable ?? true;
 
     return Material(
       color: Colors.white,
@@ -449,7 +466,7 @@ class _ModelCard extends StatelessWidget {
                   top: Radius.circular(16),
                 ),
                 child: SizedBox(
-                  height: 140,
+                  height: 130,
                   width: double.infinity,
                   child: MiniFurniturePreview(furniture: furniture),
                 ),
@@ -516,6 +533,33 @@ class _ModelCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
+                      Tooltip(
+                        message: estimate.costs.pricingNote,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.payments_outlined,
+                              size: 14,
+                              color: scheme.primary,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                hasLocalPrices
+                                    ? 'Estimado + impuesto: ${formatMoney(estimate.costs.totalWithTaxCents, currency: country?.currency ?? 'COP')}'
+                                    : 'Precio local pendiente · ${country?.currency ?? ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: scheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
                           Expanded(
