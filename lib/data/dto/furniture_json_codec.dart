@@ -1,19 +1,18 @@
 import '../../domain/entities/construction_settings.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/furniture_spec.dart';
+import '../../domain/entities/hardware_item.dart';
+import '../../domain/entities/joint.dart';
+import '../../domain/entities/mechanism.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/entities/saved_furniture.dart';
 import '../../domain/value_objects/cut_size.dart';
 import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
 
-/// Serialización de muebles a JSON.
-///
-/// Se guardan las piezas y los parámetros geométricos. Las uniones y los
-/// mecanismos se reconstruyen o se añaden en fases posteriores; el despiece,
-/// las plantillas y la vista 3D funcionan solo con las piezas.
+/// Serialización completa de muebles a JSON, incluyendo piezas, uniones y mecanismos.
 abstract final class FurnitureJsonCodec {
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   static Map<String, dynamic> furnitureToJson(Furniture furniture) => {
     'schemaVersion': schemaVersion,
@@ -33,6 +32,8 @@ abstract final class FurnitureJsonCodec {
       'plinthHeightMm': furniture.settings.plinthHeightMm,
     },
     'parts': furniture.parts.map(partToJson).toList(growable: false),
+    'joints': furniture.joints.map(jointToJson).toList(growable: false),
+    'mechanisms': furniture.mechanisms.map(mechanismToJson).toList(growable: false),
   };
 
   static Furniture furnitureFromJson(Map<String, dynamic> json) {
@@ -40,6 +41,15 @@ abstract final class FurnitureJsonCodec {
     final settings = _asMap(json['settings']);
     final parts = _asList(json['parts'])
         .map((part) => partFromJson(_asMap(part)))
+        .toList(growable: false);
+
+    final joints = _asList(json['joints'])
+        .map((j) => jointFromJson(_asMap(j)))
+        .toList(growable: false);
+
+    final mechanisms = _asList(json['mechanisms'])
+        .map((m) => mechanismFromJson(_asMap(m)))
+        .whereType<Mechanism>()
         .toList(growable: false);
 
     return Furniture(
@@ -63,8 +73,116 @@ abstract final class FurnitureJsonCodec {
         plinthHeightMm: _asDouble(settings['plinthHeightMm']),
       ),
       parts: parts,
+      joints: joints,
+      mechanisms: mechanisms,
       schemaVersion: _asInt(json['schemaVersion']),
     );
+  }
+
+  static Map<String, dynamic> jointToJson(Joint joint) => {
+    'id': joint.id,
+    'type': joint.type.name,
+    'partAId': joint.partAId,
+    'partBId': joint.partBId,
+    'count': joint.count,
+    'fastener': joint.fastener == null
+        ? null
+        : {
+            'kind': joint.fastener!.kind.name,
+            'label': joint.fastener!.label,
+            'diameterMm': joint.fastener!.diameterMm,
+            'lengthMm': joint.fastener!.lengthMm,
+          },
+    'notes': joint.notes,
+  };
+
+  static Joint jointFromJson(Map<String, dynamic> json) {
+    final fastenerMap = _asMapOrNull(json['fastener']);
+    FastenerSpec? fastener;
+    if (fastenerMap != null) {
+      fastener = FastenerSpec(
+        kind: _enumByName(
+          HardwareKind.values,
+          fastenerMap['kind'],
+          HardwareKind.screw,
+        ),
+        label: _asString(fastenerMap['label']),
+        diameterMm: _asDoubleOrNull(fastenerMap['diameterMm']),
+        lengthMm: _asDoubleOrNull(fastenerMap['lengthMm']),
+      );
+    }
+
+    return Joint(
+      id: _asString(json['id']),
+      type: _enumByName(JointType.values, json['type'], JointType.buttScrew),
+      partAId: _asString(json['partAId']),
+      partBId: _asString(json['partBId']),
+      count: _asInt(json['count']),
+      fastener: fastener,
+      notes: _asStringOrNull(json['notes']),
+    );
+  }
+
+  static Map<String, dynamic> mechanismToJson(Mechanism mech) {
+    if (mech is HingedDoorMechanism) {
+      return {
+        'type': 'hingedDoor',
+        'id': mech.id,
+        'partIds': mech.partIds,
+        'doorPartId': mech.doorPartId,
+        'hingeSide': mech.hingeSide.name,
+        'maxOpenAngleDeg': mech.maxOpenAngleDeg,
+        'hingeCount': mech.hingeCount,
+        'hingeKind': mech.hingeKind.name,
+        'hingeSpec': mech.hingeSpec,
+      };
+    } else if (mech is DrawerMechanism) {
+      return {
+        'type': 'drawer',
+        'id': mech.id,
+        'partIds': mech.partIds,
+        'frontPartId': mech.frontPartId,
+        'boxPartIds': mech.boxPartIds,
+        'travelMm': mech.travelMm,
+        'slideKind': mech.slideKind.name,
+        'slideSpec': mech.slideSpec,
+      };
+    }
+    return {
+      'type': 'generic',
+      'id': mech.id,
+      'partIds': mech.partIds,
+    };
+  }
+
+  static Mechanism? mechanismFromJson(Map<String, dynamic> json) {
+    final type = _asString(json['type']);
+    final id = _asString(json['id']);
+    final partIds = _asList(json['partIds']).map((e) => e.toString()).toList();
+
+    if (type == 'hingedDoor') {
+      return HingedDoorMechanism(
+        id: id,
+        partIds: partIds,
+        doorPartId: _asString(json['doorPartId']),
+        hingeSide: _enumByName(HingeSide.values, json['hingeSide'], HingeSide.left),
+        maxOpenAngleDeg: _asDouble(json['maxOpenAngleDeg']),
+        hingeCount: _asInt(json['hingeCount']),
+        hingeKind: _enumByName(HardwareKind.values, json['hingeKind'], HardwareKind.hinge),
+        hingeSpec: _asStringOrNull(json['hingeSpec']),
+      );
+    } else if (type == 'drawer') {
+      return DrawerMechanism(
+        id: id,
+        partIds: partIds,
+        frontPartId: _asString(json['frontPartId']),
+        boxPartIds: _asList(json['boxPartIds']).map((e) => e.toString()).toList(),
+        travelMm: _asDouble(json['travelMm']),
+        slideKind: _enumByName(HardwareKind.values, json['slideKind'], HardwareKind.drawerSlide),
+        slideSpec: _asStringOrNull(json['slideSpec']),
+      );
+    }
+    return null;
   }
 
   static Map<String, dynamic> partToJson(Part part) => {
@@ -180,9 +298,18 @@ abstract final class FurnitureJsonCodec {
 
   static double _asDouble(Object? value) => value is num ? value.toDouble() : 0;
 
+  static double? _asDoubleOrNull(Object? value) =>
+      value is num ? value.toDouble() : null;
+
   static int _asInt(Object? value) => value is num ? value.toInt() : 0;
 
   static String _asString(Object? value) => value?.toString() ?? '';
+
+  static String? _asStringOrNull(Object? value) {
+    if (value == null) return null;
+    final str = value.toString();
+    return str.isEmpty ? null : str;
+  }
 
   static T _enumByName<T extends Enum>(
     List<T> values,

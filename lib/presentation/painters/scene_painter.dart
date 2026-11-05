@@ -12,12 +12,18 @@ class ScenePainter extends CustomPainter {
   final OrbitCamera camera;
   final String? selectedPartId;
   final bool showBounds;
+  final double explodeFactor;
+  final double doorOpenProgress;
+  final double drawerOpenProgress;
 
   const ScenePainter({
     required this.furniture,
     required this.camera,
     this.selectedPartId,
     this.showBounds = true,
+    this.explodeFactor = 0.0,
+    this.doorOpenProgress = 0.0,
+    this.drawerOpenProgress = 0.0,
   });
 
   @override
@@ -40,6 +46,9 @@ class ScenePainter extends CustomPainter {
       camera: camera,
       viewportWidth: size.width,
       viewportHeight: size.height,
+      explodeFactor: explodeFactor,
+      doorOpenProgress: doorOpenProgress,
+      drawerOpenProgress: drawerOpenProgress,
     );
 
     final fillPaint = Paint()..style = PaintingStyle.fill;

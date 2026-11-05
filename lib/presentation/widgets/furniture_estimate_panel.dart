@@ -12,6 +12,7 @@ import '../providers/designer_providers.dart';
 import '../providers/pricing_providers.dart';
 import '../providers/project_context_provider.dart';
 import 'pricing_editor_dialog.dart';
+import 'assembly_guide_dialog.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
 
@@ -82,6 +83,7 @@ class FurnitureEstimatePanel extends ConsumerWidget {
             );
             final costCard = CostSummaryCard(
               report: estimate.costs,
+              furniture: furniture,
               onEditPrices: () => showPricingEditorDialog(context, ref),
             );
             final displayedCostCard = regionalPricesAvailable
@@ -404,23 +406,40 @@ class _HardwareRow extends StatelessWidget {
   };
 }
 
-class CostSummaryCard extends StatelessWidget {
+class CostSummaryCard extends StatefulWidget {
   final CostReport report;
+  final Furniture furniture;
   final VoidCallback onEditPrices;
 
   const CostSummaryCard({
     super.key,
     required this.report,
+    required this.furniture,
     required this.onEditPrices,
   });
+
+  @override
+  State<CostSummaryCard> createState() => _CostSummaryCardState();
+}
+
+class _CostSummaryCardState extends State<CostSummaryCard> {
+  double _profitMarginPercent = 35.0; // Margen comercial sugerido 35%
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final report = widget.report;
     final materialLines = report.lines
         .where((line) => line.category == CostCategory.material)
         .toList(growable: false);
+
+    // Cálculos de PVP Comercial
+    final productionCost = report.grandTotalCents;
+    final marginCents = (productionCost * (_profitMarginPercent / 100.0)).round();
+    final subtotalWithMargin = productionCost + marginCents;
+    final taxWithMarginCents = (subtotalWithMargin * (report.taxPercent / 100.0)).round();
+    final pvpTotalCents = subtotalWithMargin + taxWithMarginCents;
 
     return SurfaceCard(
       child: Column(
@@ -434,12 +453,12 @@ class CostSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Costo total estimado',
-                      style: theme.textTheme.titleLarge,
+                      'Costo de Fabricación',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Producción + impuesto local; sin margen comercial',
+                      'Producción directa de taller',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -448,13 +467,13 @@ class CostSummaryCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Editar precios y desperdicio',
-                onPressed: onEditPrices,
+                tooltip: 'Editar precios y tarifas',
+                onPressed: widget.onEditPrices,
                 icon: const Icon(Icons.tune),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: FittedBox(
@@ -465,7 +484,7 @@ class CostSummaryCard extends StatelessWidget {
                   report.totalWithTaxCents,
                   currency: report.currency,
                 ),
-                style: theme.textTheme.headlineSmall?.copyWith(
+                style: theme.textTheme.titleLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w800,
                 ),
@@ -505,11 +524,83 @@ class CostSummaryCard extends StatelessWidget {
           ),
           if (report.taxPercent > 0)
             _SummaryLine(
-              label:
-                  'Impuesto local (${report.taxPercent.toStringAsFixed(0)}%)',
+              label: 'Impuesto (${report.taxPercent.toStringAsFixed(0)}%)',
               cents: report.taxTotalCents,
               currency: report.currency,
             ),
+          const SizedBox(height: 12),
+
+          // SECCIÓN DE MARGEN COMERCIAL Y PRECIO DE VENTA (PVP)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Margen de Utilidad:',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    Text(
+                      '${_profitMarginPercent.round()}% (+${formatMoney(marginCents, currency: report.currency)})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _profitMarginPercent,
+                  min: 0.0,
+                  max: 100.0,
+                  divisions: 20,
+                  onChanged: (v) => setState(() => _profitMarginPercent = v),
+                ),
+                const Divider(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'PVP Recomendado:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      formatMoney(pvpTotalCents, currency: report.currency),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Precio final sugerido al cliente con impuestos y utilidad',
+                  style: TextStyle(fontSize: 10.5, color: theme.textTheme.bodySmall?.color),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Botón para Manual de Armado y Exportación
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => showAssemblyAndExportDialog(context, widget.furniture),
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: const Text('Manual de Armado & Planos DXF/G-Code'),
+            ),
+          ),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,

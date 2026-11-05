@@ -50,6 +50,34 @@ class _Viewer3DState extends State<Viewer3D> {
   Vector3? _dragStartPosition;
   Vector3? _dragStartPlanePoint;
   double? _dragPlaneY;
+  double _doorsProgress = 0.0;
+  double _drawersProgress = 0.0;
+  double _explodeProgress = 0.0;
+  bool _controlsExpanded = false;
+
+  void _setOrthogonalView(String view) {
+    setState(() {
+      switch (view) {
+        case 'front':
+          _yaw = 0.0;
+          _pitch = 0.0;
+          break;
+        case 'side':
+          _yaw = math.pi / 2;
+          _pitch = 0.0;
+          break;
+        case 'top':
+          _yaw = 0.0;
+          _pitch = math.pi / 2 - 0.02;
+          break;
+        case 'iso':
+        default:
+          _yaw = _defaultYaw;
+          _pitch = _defaultPitch;
+          break;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -244,9 +272,93 @@ class _Viewer3DState extends State<Viewer3D> {
                       camera: camera,
                       selectedPartId: widget.selectedPartId,
                       showBounds: widget.showBounds,
+                      explodeFactor: _explodeProgress,
+                      doorOpenProgress: _doorsProgress,
+                      drawerOpenProgress: _drawersProgress,
                     ),
                     child: const SizedBox.expand(),
                   ),
+                ),
+              ),
+            ),
+            // Barra de Vistas Ortogonales
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _viewButton('ISO', 'iso', 'Perspectiva Isométrica'),
+                    _viewButton('FRONTAL', 'front', 'Vista Frontal (Alzado)'),
+                    _viewButton('LATERAL', 'side', 'Vista Lateral (Perfil)'),
+                    _viewButton('PLANTA', 'top', 'Vista Superior (Planta)'),
+                  ],
+                ),
+              ),
+            ),
+            // Controles de Animación y Explosionado
+            Positioned(
+              top: 50,
+              left: 10,
+              child: Container(
+                width: 220,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Simulación & Apertura',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _controlsExpanded = !_controlsExpanded),
+                          child: Icon(
+                            _controlsExpanded ? Icons.expand_less : Icons.expand_more,
+                            size: 16,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_controlsExpanded) ...[
+                      const SizedBox(height: 6),
+                      _sliderRow(
+                        label: 'Puertas',
+                        value: _doorsProgress,
+                        onChanged: (v) => setState(() => _doorsProgress = v),
+                      ),
+                      _sliderRow(
+                        label: 'Cajones',
+                        value: _drawersProgress,
+                        onChanged: (v) => setState(() => _drawersProgress = v),
+                      ),
+                      _sliderRow(
+                        label: 'Explosión',
+                        value: _explodeProgress,
+                        onChanged: (v) => setState(() => _explodeProgress = v),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -297,6 +409,69 @@ class _Viewer3DState extends State<Viewer3D> {
           ],
         );
       },
+    );
+  }
+
+  Widget _viewButton(String label, String viewKey, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () => _setOrthogonalView(viewKey),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sliderRow({
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 52,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 10,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                activeTrackColor: const Color(0xFFFFB74D),
+                thumbColor: const Color(0xFFFFB74D),
+              ),
+              child: Slider(
+                value: value,
+                min: 0.0,
+                max: 1.0,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

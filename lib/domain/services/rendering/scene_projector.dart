@@ -145,9 +145,16 @@ class SceneProjector {
     required double viewportWidth,
     required double viewportHeight,
     double explodeFactor = 0,
+    double doorOpenProgress = 0,
+    double drawerOpenProgress = 0,
   }) {
     final basis = _buildBasis(camera, viewportWidth, viewportHeight);
-    final parts = const SceneBuilder().build(furniture);
+    final parts = const SceneBuilder().build(
+      furniture,
+      doorOpenProgress: doorOpenProgress,
+      drawerOpenProgress: drawerOpenProgress,
+      explodeProgress: explodeFactor,
+    );
     final furnitureCenter = Vector3(
       furniture.overallSize.width / 2,
       furniture.overallSize.height / 2,
@@ -187,17 +194,26 @@ class SceneProjector {
         ];
         final faceCenter = _average(facePoints);
         final toEye = basis.eye - faceCenter;
-        if (face.normal.dot(toEye) <= 0) continue;
+
+        // Calcular la normal real de la cara transformada
+        final v0 = facePoints[0];
+        final v1 = facePoints[1];
+        final v2 = facePoints[2];
+        final dynamicNormal = (v1 - v0).cross(v2 - v0).normalized;
+        final effectiveNormal = dynamicNormal.length > 0.1 ? dynamicNormal : face.normal;
+
+        if (effectiveNormal.dot(toEye) <= 0) continue;
 
         // Oculta caras interiores que quedan tapadas por otra pieza.
-        // Sin esto, el algoritmo del pintor puede dibujar un estante
-        // encima de una puerta por error de profundidad media.
-        if (_isOccluded(
-          origin: basis.eye,
-          target: faceCenter,
-          bounds: allBounds,
-          selfPartId: scenePart.part.id,
-        )) {
+        if (explodeFactor == 0 &&
+            doorOpenProgress == 0 &&
+            drawerOpenProgress == 0 &&
+            _isOccluded(
+              origin: basis.eye,
+              target: faceCenter,
+              bounds: allBounds,
+              selfPartId: scenePart.part.id,
+            )) {
           continue;
         }
 
@@ -216,7 +232,7 @@ class SceneProjector {
         final depth = _averageDepth(facePoints, basis);
         final brightness =
             0.42 +
-            0.58 * math.max(0.0, face.normal.dot(_lightDirection.normalized));
+            0.58 * math.max(0.0, effectiveNormal.dot(_lightDirection.normalized));
 
         faces.add(
           ProjectedFace(

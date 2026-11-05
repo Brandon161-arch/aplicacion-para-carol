@@ -10,6 +10,8 @@ import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/part_detail_dialog.dart';
 import '../widgets/regional_material_panel.dart';
 import '../widgets/viewer_card.dart';
+import '../widgets/ergonomics_panel.dart';
+import '../widgets/security_logistics_panel.dart';
 
 class DesignerScreen extends ConsumerWidget {
   const DesignerScreen({super.key});
@@ -26,6 +28,10 @@ class DesignerScreen extends ConsumerWidget {
         DimensionPanel(),
         SizedBox(height: 14),
         RegionalMaterialPanel(),
+        SizedBox(height: 14),
+        ErgonomicsPanel(),
+        SizedBox(height: 14),
+        SecurityLogisticsPanel(),
       ],
     );
 
