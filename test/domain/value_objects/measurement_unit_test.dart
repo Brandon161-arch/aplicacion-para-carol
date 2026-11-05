@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mueble_cad/core/constants/units.dart';
 import 'package:mueble_cad/domain/value_objects/measurement_unit.dart';
 
 void main() {
@@ -15,5 +16,11 @@ void main() {
       expect(MeasurementUnit.centimeter.format(800), '80 cm');
       expect(MeasurementUnit.meter.format(1200), '1,2 m');
     });
+  });
+
+  test('formatea importes con decimales según la moneda regional', () {
+    expect(formatMoney(123456, currency: 'USD'), 'USD 1.234,56');
+    expect(formatMoney(123456, currency: 'EUR'), 'EUR 1.234,56');
+    expect(formatMoney(123456), r'$ 1.235');
   });
 }
