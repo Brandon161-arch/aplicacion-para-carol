@@ -52,7 +52,7 @@ enum GrainDirection {
   alongWidth;
 
   String get label => switch (this) {
-    GrainDirection.none => 'â€”',
+    GrainDirection.none => '—',
     GrainDirection.alongLength => 'Largo',
     GrainDirection.alongWidth => 'Ancho',
   };

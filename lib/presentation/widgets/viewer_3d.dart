@@ -718,7 +718,7 @@ class _Viewer3DState extends State<Viewer3D>
               bottom: 10,
               child: IgnorePointer(
                 child: Text(
-                  '${formatMm(size.width)} Ã— ${formatMm(size.height)} Ã— ${formatMm(size.depth)} mm',
+                  '${formatMm(size.width)} × ${formatMm(size.height)} × ${formatMm(size.depth)} mm',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
                     fontSize: 11.5,

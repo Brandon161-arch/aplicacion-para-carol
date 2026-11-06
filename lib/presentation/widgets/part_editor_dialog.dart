@@ -566,7 +566,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                     Text(
                       world == null
                           ? 'Completa las medidas para ver el tamaño real.'
-                          : '${_orientation.hint}. Ocupa ${formatMm(world.width)} Ã— ${formatMm(world.height)} Ã— ${formatMm(world.depth)} mm (ancho Ã— alto Ã— fondo).',
+                          : '${_orientation.hint}. Ocupa ${formatMm(world.width)} × ${formatMm(world.height)} × ${formatMm(world.depth)} mm (ancho × alto × fondo).',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
