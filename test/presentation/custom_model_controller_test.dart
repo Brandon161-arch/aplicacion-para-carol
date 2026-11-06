@@ -86,4 +86,38 @@ void main() {
     expect(vertical.hasConsistentDimensions, isTrue);
     expect(draft.overallSize, const Size3(width: 360, height: 240, depth: 240));
   });
+
+  test('oculta, muestra y elimina piezas sin dejar IDs huérfanos', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(customModelProvider.notifier);
+    controller.addPart(
+      const Part(
+        id: 'visible_part',
+        name: 'Panel',
+        kind: PartKind.shelf,
+        size: Size3(width: 100, height: 20, depth: 50),
+        cutSize: CutSize(length: 100, width: 50, thickness: 20),
+        materialId: 'mdf_18',
+        position: Vector3.zero,
+      ),
+    );
+
+    var draft = container.read(customModelProvider);
+    expect(draft.hiddenPartIds, isEmpty);
+
+    controller.togglePartVisibility('visible_part');
+    draft = container.read(customModelProvider);
+    expect(draft.hiddenPartIds, contains('visible_part'));
+
+    controller.showAllParts();
+    draft = container.read(customModelProvider);
+    expect(draft.hiddenPartIds, isEmpty);
+
+    controller.togglePartVisibility('visible_part');
+    controller.removePart('visible_part');
+    draft = container.read(customModelProvider);
+    expect(draft.parts, isEmpty);
+    expect(draft.hiddenPartIds, isEmpty);
+  });
 }

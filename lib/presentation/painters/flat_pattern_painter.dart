@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/constants/units.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
@@ -68,7 +70,7 @@ class FlatPatternPainter extends CustomPainter {
     required this.bandedEdges,
     required this.panelColor,
     this.inkColor = const Color(0xFF3E332B),
-    this.bandingColor = const Color(0xFFB26A00),
+    this.bandingColor = AppTheme.primary,
     this.showDimensions = true,
     this.showResizeHandle = false,
     this.shape = PartShape.rectangle,

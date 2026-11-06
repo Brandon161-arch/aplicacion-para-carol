@@ -20,6 +20,7 @@ class CustomModelDraft {
   final ConstructionSettings settings;
   final List<Part> parts;
   final String defaultMaterialId;
+  final Set<String> hiddenPartIds;
 
   const CustomModelDraft({
     required this.name,
@@ -27,6 +28,7 @@ class CustomModelDraft {
     required this.settings,
     required this.parts,
     this.defaultMaterialId = 'mdf_18',
+    this.hiddenPartIds = const {},
   });
 
   CustomModelDraft copyWith({
@@ -35,12 +37,14 @@ class CustomModelDraft {
     ConstructionSettings? settings,
     List<Part>? parts,
     String? defaultMaterialId,
+    Set<String>? hiddenPartIds,
   }) => CustomModelDraft(
     name: name ?? this.name,
     overallSize: overallSize ?? this.overallSize,
     settings: settings ?? this.settings,
     parts: parts ?? this.parts,
     defaultMaterialId: defaultMaterialId ?? this.defaultMaterialId,
+    hiddenPartIds: hiddenPartIds ?? this.hiddenPartIds,
   );
 }
 
@@ -131,6 +135,7 @@ class CustomModelController extends Notifier<CustomModelDraft> {
       defaultMaterialId: furniture.parts.isNotEmpty
           ? furniture.parts.first.materialId
           : state.defaultMaterialId,
+      hiddenPartIds: const {},
     );
   }
 
@@ -165,9 +170,21 @@ class CustomModelController extends Notifier<CustomModelDraft> {
   }
 
   void removePart(String id) {
+    final hidden = {...state.hiddenPartIds}..remove(id);
     state = state.copyWith(
       parts: state.parts.where((part) => part.id != id).toList(growable: false),
+      hiddenPartIds: hidden,
     );
+  }
+
+  void togglePartVisibility(String id) {
+    final hidden = {...state.hiddenPartIds};
+    if (!hidden.remove(id)) hidden.add(id);
+    state = state.copyWith(hiddenPartIds: hidden);
+  }
+
+  void showAllParts() {
+    state = state.copyWith(hiddenPartIds: const {});
   }
 
   void duplicatePart(String id) {

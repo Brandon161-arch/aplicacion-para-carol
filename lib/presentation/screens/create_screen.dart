@@ -230,7 +230,12 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
           ],
         ),
       );
-      if (confirmed == true) controller.removePart(part.id);
+      if (confirmed == true) {
+        controller.removePart(part.id);
+        if (_selectedPartId == part.id) {
+          setState(() => _selectedPartId = null);
+        }
+      }
     }
 
     Future<void> confirmNewModel() async {
@@ -567,6 +572,24 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     ),
                 ],
               ),
+              if (draft.hiddenPartIds.isNotEmpty)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${draft.hiddenPartIds.length} oculta(s) en el 3D',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: controller.showAllParts,
+                      icon: const Icon(Icons.visibility, size: 16),
+                      label: const Text('Mostrar todas'),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 8),
               if (draft.parts.isEmpty)
                 Padding(
@@ -589,25 +612,34 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     itemBuilder: (context, index) {
                       final part = draft.parts[index];
                       final material = catalog.byId(part.materialId);
+                      final hidden = draft.hiddenPartIds.contains(part.id);
                       return Material(
                         color: Colors.transparent,
                         child: ListTile(
                           dense: true,
                           selected: _selectedPartId == part.id,
                           contentPadding: EdgeInsets.zero,
-                          leading: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest.withValues(
-                                alpha: 0.6,
+                          leading: Tooltip(
+                            message: hidden
+                                ? 'Mostrar en el modelo 3D'
+                                : 'Ocultar del modelo 3D',
+                            child: IconButton(
+                              onPressed: () =>
+                                  controller.togglePartVisibility(part.id),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 34,
+                                height: 34,
                               ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.crop_square,
-                              size: 17,
-                              color: scheme.onSurfaceVariant,
+                              icon: Icon(
+                                hidden
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 18,
+                                color: hidden
+                                    ? scheme.error
+                                    : scheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                           title: Text(
@@ -620,7 +652,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                           ),
                           subtitle: Text(
                             '${formatMm(part.cutSize.length)} × ${formatMm(part.cutSize.width)} × ${formatMm(part.cutSize.thickness)} mm'
-                            '${material == null ? '' : ' · ${material.name}'}',
+                            '${material == null ? '' : ' · ${material.name}'}'
+                            '${hidden ? ' · oculta en 3D' : ''}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall,
@@ -761,6 +794,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       return _SelectedPartToolbar(
         part: selected,
         onEdit: () => addPart(initial: selected),
+        hidden: draft.hiddenPartIds.contains(selected.id),
+        onToggleVisibility: () => controller.togglePartVisibility(selected.id),
         onFloor: () => updatePartPosition(selected, y: 0),
         onStack: () => stackSelected(selected),
         onUp: () => updatePartPosition(selected, y: selected.position.y + 10),
@@ -792,6 +827,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       selectedPartId: _selectedPartId,
       onPartSelected: selectPart,
       onPartMoved: controller.updatePart,
+      hiddenPartIds: draft.hiddenPartIds,
     );
 
     final templates = FlatPatternsPanel(
@@ -909,6 +945,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
 class _SelectedPartToolbar extends StatelessWidget {
   final Part part;
   final VoidCallback onEdit;
+  final VoidCallback onToggleVisibility;
+  final bool hidden;
   final VoidCallback onFloor;
   final VoidCallback onStack;
   final VoidCallback onUp;
@@ -921,6 +959,8 @@ class _SelectedPartToolbar extends StatelessWidget {
   const _SelectedPartToolbar({
     required this.part,
     required this.onEdit,
+    required this.onToggleVisibility,
+    required this.hidden,
     required this.onFloor,
     required this.onStack,
     required this.onUp,
@@ -952,6 +992,20 @@ class _SelectedPartToolbar extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+          ),
+          _ToolIconButton(
+            tooltip: hidden
+                ? 'Mostrar en el modelo 3D'
+                : 'Ocultar del modelo 3D',
+            icon: hidden
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+            onPressed: onToggleVisibility,
+          ),
+          _ToolIconButton(
+            tooltip: 'Eliminar pieza',
+            icon: Icons.delete_outline,
+            onPressed: onDelete,
           ),
           _ToolIconButton(
             tooltip: 'Editar medidas',
@@ -987,11 +1041,6 @@ class _SelectedPartToolbar extends StatelessWidget {
             tooltip: 'Centrar en Z',
             icon: Icons.align_vertical_center,
             onPressed: onCenterZ,
-          ),
-          _ToolIconButton(
-            tooltip: 'Eliminar pieza',
-            icon: Icons.delete_outline,
-            onPressed: onDelete,
           ),
           _ToolIconButton(
             tooltip: 'Quitar selección',

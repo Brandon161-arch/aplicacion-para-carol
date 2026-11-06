@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../core/constants/units.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
@@ -19,6 +20,7 @@ class Viewer3D extends StatefulWidget {
   final ValueChanged<String>? onPartSelected;
   final ValueChanged<Part>? onPartMoved;
   final bool showBounds;
+  final Set<String> hiddenPartIds;
 
   const Viewer3D({
     super.key,
@@ -28,6 +30,7 @@ class Viewer3D extends StatefulWidget {
     this.onPartSelected,
     this.onPartMoved,
     this.showBounds = true,
+    this.hiddenPartIds = const {},
   });
 
   @override
@@ -59,6 +62,7 @@ class _Viewer3DState extends State<Viewer3D>
   bool _controlsExpanded = false;
   bool _showHardware = true;
   bool _snapEnabled = true;
+  Size _viewportSize = Size.zero;
 
   late final AnimationController _motionController;
   double _doorsStart = 0;
@@ -139,6 +143,24 @@ class _Viewer3DState extends State<Viewer3D>
     });
   }
 
+  Furniture get _visibleFurniture {
+    if (widget.hiddenPartIds.isEmpty) return widget.furniture;
+    return Furniture(
+      id: widget.furniture.id,
+      name: widget.furniture.name,
+      type: widget.furniture.type,
+      overallSize: widget.furniture.overallSize,
+      settings: widget.furniture.settings,
+      parts: widget.furniture.parts
+          .where((part) => !widget.hiddenPartIds.contains(part.id))
+          .toList(growable: false),
+      joints: widget.furniture.joints,
+      manualHardware: widget.furniture.manualHardware,
+      mechanisms: widget.furniture.mechanisms,
+      schemaVersion: widget.furniture.schemaVersion,
+    );
+  }
+
   double get _fitDistance =>
       math.max(300.0, widget.furniture.overallSize.maxDimension * 2.0);
 
@@ -158,12 +180,67 @@ class _Viewer3DState extends State<Viewer3D>
 
   void _handleScroll(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
-    final factor = math.exp(event.scrollDelta.dy * 0.0012);
+    // Solo zoom si el puntero está sobre el mueble proyectado. Fuera de él,
+    // la rueda sigue desplazando la página.
+    if (!_isPointerOverModel(event.localPosition)) return;
+    // Registra el evento en el resolver: esto impide que el Scrollable
+    // ancestor también lo procese y desplace la página al hacer zoom.
+    GestureBinding.instance.pointerSignalResolver.register(event, (resolved) {
+      if (resolved is! PointerScrollEvent) return;
+      _applyZoom(resolved.scrollDelta.dy);
+    });
+  }
+
+  void _applyZoom(double deltaY) {
+    final factor = math.exp(deltaY * 0.0012);
     setState(() {
       _distance = (_distance * factor)
           .clamp(_minDistance, _maxDistance)
           .toDouble();
     });
+  }
+
+  bool _isPointerOverModel(Offset position) {
+    if (_viewportSize.isEmpty) return false;
+    final size = widget.furniture.overallSize;
+    final corners = <Vector3>[
+      const Vector3(0, 0, 0),
+      Vector3(size.width, 0, 0),
+      Vector3(size.width, size.height, 0),
+      Vector3(0, size.height, 0),
+      Vector3(0, 0, size.depth),
+      Vector3(size.width, 0, size.depth),
+      Vector3(size.width, size.height, size.depth),
+      Vector3(0, size.height, size.depth),
+    ];
+    const projector = SceneProjector();
+    final projected = <Offset>[];
+    for (final corner in corners) {
+      final point = projector.projectPoint(
+        point: corner,
+        camera: _camera,
+        viewportWidth: _viewportSize.width,
+        viewportHeight: _viewportSize.height,
+      );
+      if (point != null) projected.add(Offset(point.x, point.y));
+    }
+    if (projected.length < 2) return false;
+    var left = projected.first.dx;
+    var right = projected.first.dx;
+    var top = projected.first.dy;
+    var bottom = projected.first.dy;
+    for (final point in projected.skip(1)) {
+      left = math.min(left, point.dx);
+      right = math.max(right, point.dx);
+      top = math.min(top, point.dy);
+      bottom = math.max(bottom, point.dy);
+    }
+    return Rect.fromLTRB(
+      left,
+      top,
+      right,
+      bottom,
+    ).inflate(14).contains(position);
   }
 
   void _handleScaleStart(
@@ -176,7 +253,7 @@ class _Viewer3DState extends State<Viewer3D>
         widget.onPartMoved != null) {
       const projector = SceneProjector();
       final partId = projector.pickPart(
-        furniture: widget.furniture,
+        furniture: _visibleFurniture,
         camera: camera,
         viewportWidth: viewport.width,
         viewportHeight: viewport.height,
@@ -184,7 +261,7 @@ class _Viewer3DState extends State<Viewer3D>
         screenY: details.localFocalPoint.dy,
       );
       if (partId != null) {
-        final part = widget.furniture.partById(partId);
+        final part = _visibleFurniture.partById(partId);
         if (part != null) {
           final planeY = part.position.y + part.size.height / 2;
           final startPoint = projector.screenToPlane(
@@ -301,7 +378,7 @@ class _Viewer3DState extends State<Viewer3D>
     final size = axisX ? part.size.width : part.size.depth;
     double? best;
     var bestDistance = tolerance;
-    for (final other in widget.furniture.parts) {
+    for (final other in _visibleFurniture.parts) {
       if (other.id == part.id) continue;
       final start = axisX ? other.position.x : other.position.z;
       final extent = axisX ? other.size.width : other.size.depth;
@@ -325,7 +402,7 @@ class _Viewer3DState extends State<Viewer3D>
 
   bool _collides(Part candidate) {
     const tolerance = 0.6;
-    for (final other in widget.furniture.parts) {
+    for (final other in _visibleFurniture.parts) {
       if (other.id == candidate.id) continue;
       final overlapX = _overlap(
         candidate.position.x,
@@ -375,6 +452,7 @@ class _Viewer3DState extends State<Viewer3D>
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        _viewportSize = viewport;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -394,7 +472,7 @@ class _Viewer3DState extends State<Viewer3D>
                   onScaleEnd: _handleScaleEnd,
                   child: CustomPaint(
                     painter: ScenePainter(
-                      furniture: widget.furniture,
+                      furniture: _visibleFurniture,
                       camera: camera,
                       selectedPartId: widget.selectedPartId,
                       showBounds: widget.showBounds,
@@ -419,11 +497,16 @@ class _Viewer3DState extends State<Viewer3D>
               left: 10,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
-                  ),
+                  color: AppTheme.viewerPanel,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppTheme.viewerPanelBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
@@ -443,13 +526,18 @@ class _Viewer3DState extends State<Viewer3D>
               left: 10,
               child: Container(
                 width: 236,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
+                  color: AppTheme.viewerPanel,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.viewerPanelBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.38),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,7 +639,18 @@ class _Viewer3DState extends State<Viewer3D>
                             color: Color(0xFF2E7D9A),
                             label: 'Corredera',
                           ),
+                          _MarkerLegend(
+                            color: Color(0xFFFF6D00),
+                            label: 'Punta',
+                          ),
                         ],
+                      ),
+                      Text(
+                        'El aro marca la entrada y el punto naranja, la punta dentro de la madera.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 9,
+                        ),
                       ),
                       if (_doorsProgress.abs() > 0.001 ||
                           _drawersProgress.abs() > 0.001)
@@ -619,7 +718,7 @@ class _Viewer3DState extends State<Viewer3D>
               bottom: 10,
               child: IgnorePointer(
                 child: Text(
-                  '${formatMm(size.width)} × ${formatMm(size.height)} × ${formatMm(size.depth)} mm',
+                  '${formatMm(size.width)} Ã— ${formatMm(size.height)} Ã— ${formatMm(size.depth)} mm',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
                     fontSize: 11.5,
@@ -644,9 +743,10 @@ class _Viewer3DState extends State<Viewer3D>
       message: tooltip,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
+        hoverColor: Colors.white.withValues(alpha: 0.08),
         child: Padding(
-          padding: const EdgeInsets.all(5),
+          padding: const EdgeInsets.all(6),
           child: Icon(
             icon,
             size: 17,
@@ -671,30 +771,60 @@ class _Viewer3DState extends State<Viewer3D>
       padding: const EdgeInsets.symmetric(horizontal: 2),
       labelPadding: const EdgeInsets.symmetric(horizontal: 2),
       showCheckmark: false,
-      selectedColor: const Color(0xFFFFB74D),
-      backgroundColor: Colors.white.withValues(alpha: 0.12),
+      selectedColor: AppTheme.accent,
+      backgroundColor: Colors.white.withValues(alpha: 0.10),
       labelStyle: TextStyle(
-        color: selected ? Colors.black87 : Colors.white,
-        fontWeight: FontWeight.w600,
+        color: selected ? const Color(0xFF2E2620) : Colors.white,
+        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
       ),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
     );
   }
 
+  bool _isViewActive(String viewKey) {
+    const epsilon = 0.05;
+    return switch (viewKey) {
+      'front' => _yaw.abs() < epsilon && _pitch.abs() < epsilon,
+      'side' => (_yaw - math.pi / 2).abs() < epsilon && _pitch.abs() < epsilon,
+      'top' =>
+        (_pitch - (math.pi / 2 - 0.02)).abs() < epsilon && _yaw.abs() < epsilon,
+      _ =>
+        (_yaw - _defaultYaw).abs() < epsilon &&
+            (_pitch - _defaultPitch).abs() < epsilon,
+    };
+  }
+
   Widget _viewButton(String label, String viewKey, String tooltip) {
+    final active = _isViewActive(viewKey);
     return Tooltip(
       message: tooltip,
       child: InkWell(
         onTap: () => _setOrthogonalView(viewKey),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        borderRadius: BorderRadius.circular(999),
+        hoverColor: Colors.white.withValues(alpha: 0.08),
+        child: AnimatedContainer(
+          duration: AppTheme.fast,
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: active
+                ? AppTheme.accent.withValues(alpha: 0.22)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: active
+                  ? AppTheme.accent.withValues(alpha: 0.45)
+                  : Colors.transparent,
+            ),
+          ),
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: active
+                  ? const Color(0xFFFFD9B0)
+                  : Colors.white.withValues(alpha: 0.85),
               fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),

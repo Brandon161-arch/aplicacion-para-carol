@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/services/hardware_marker_builder.dart';
@@ -43,9 +45,18 @@ class ScenePainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF1E2832), Color(0xFF101519)],
+        colors: [AppTheme.viewerTop, AppTheme.viewerBottom],
       ).createShader(backgroundRect);
     canvas.drawRect(backgroundRect, background);
+    canvas.drawRect(
+      backgroundRect,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(0.05, -0.35),
+          radius: 1.1,
+          colors: [Color(0x26E8C49A), Colors.transparent],
+        ).createShader(backgroundRect),
+    );
 
     _drawFloorGrid(canvas, size);
 
@@ -255,10 +266,8 @@ class ScenePainter extends CustomPainter {
   void _paintMelamineSpeckles(Canvas canvas, Rect bounds, String materialId) {
     final paint = Paint()
       ..color = const Color(0xFF6B5A48).withValues(alpha: 0.10);
-    final random = math.Random(
-      bounds.width.round() * 31 + bounds.height.round(),
-    );
-    for (var index = 0; index < 70; index++) {
+    final random = math.Random(materialId.hashCode & 0x7fffffff);
+    for (var index = 0; index < 32; index++) {
       canvas.drawCircle(
         Offset(
           bounds.left + random.nextDouble() * bounds.width,
@@ -291,6 +300,8 @@ class ScenePainter extends CustomPainter {
     if (markers.isEmpty) return;
     const projector = SceneProjector();
 
+    final visible =
+        <({HardwareMarker marker, Offset center, Offset? tip, double depth})>[];
     for (final marker in markers) {
       final point = projector.projectPoint(
         point: marker.position,
@@ -299,28 +310,188 @@ class ScenePainter extends CustomPainter {
         viewportHeight: size.height,
       );
       if (point == null) continue;
-      final center = Offset(point.x, point.y);
-      final scale = (1300 / point.depth).clamp(0.55, 1.65).toDouble();
-      switch (marker.kind) {
+      if (point.x < -80 ||
+          point.x > size.width + 80 ||
+          point.y < -80 ||
+          point.y > size.height + 80) {
+        continue;
+      }
+      final tipWorld = marker.position + marker.direction * marker.lengthMm;
+      final tipProjection = projector.projectPoint(
+        point: tipWorld,
+        camera: camera,
+        viewportWidth: size.width,
+        viewportHeight: size.height,
+      );
+      visible.add((
+        marker: marker,
+        center: Offset(point.x, point.y),
+        tip: tipProjection == null
+            ? null
+            : Offset(tipProjection.x, tipProjection.y),
+        depth: point.depth,
+      ));
+    }
+    // De lejos a cerca y con un límite para que no sature el visor.
+    visible.sort((a, b) => b.depth.compareTo(a.depth));
+    for (final item in visible.take(70)) {
+      final scale = (1100 / item.depth).clamp(0.5, 1.05).toDouble();
+      switch (item.marker.kind) {
         case HardwareMarkerKind.screw:
-          _drawScrew(canvas, center, scale);
+          _drawScrew(canvas, item.center, item.tip, scale);
           break;
         case HardwareMarkerKind.hinge:
-          _drawHinge(canvas, center, scale);
+          _drawHinge(canvas, item.center, item.tip, scale);
           break;
         case HardwareMarkerKind.drawerSlide:
-          _drawSlide(canvas, center, scale);
+          _drawSlide(canvas, item.center, item.tip, scale);
           break;
         case HardwareMarkerKind.handle:
-          _drawHandle(canvas, center, scale);
+          _drawHandle(canvas, item.center, item.tip, scale);
           break;
       }
     }
   }
 
-  void _drawScrew(Canvas canvas, Offset center, double scale) {
-    final radius = 4.6 * scale;
-    // Sombra proyectada.
+  void _drawScrewShaft(
+    Canvas canvas,
+    Offset entry,
+    Offset? tip,
+    double scale, {
+    Color metal = const Color(0xFFB9C2C8),
+  }) {
+    final rawTip = tip ?? entry + Offset(0, 14 * scale);
+    final delta = rawTip - entry;
+    final rawLength = delta.distance;
+    final direction = rawLength < 0.5 ? const Offset(0, 1) : delta / rawLength;
+    // El eje se acota en pantalla: conserva la direcci�n real, pero evita
+    // barras gigantes cuando la c�mara est� muy cerca.
+    final drawnLength = rawLength.clamp(9 * scale, 22 * scale).toDouble();
+    final end = entry + direction * drawnLength;
+    final perpendicular = Offset(-direction.dy, direction.dx);
+    final startWidth = 2.2 * scale;
+    final endWidth = 0.85 * scale;
+
+    // Sombra del eje.
+    canvas.drawLine(
+      entry.translate(1.1, 1.3),
+      end.translate(1.1, 1.3),
+      Paint()
+        ..color = const Color(0x55000000)
+        ..strokeWidth = startWidth * 1.4
+        ..strokeCap = StrokeCap.round,
+    );
+    final shaft = Path()
+      ..moveTo(
+        entry.dx + perpendicular.dx * startWidth,
+        entry.dy + perpendicular.dy * startWidth,
+      )
+      ..lineTo(
+        end.dx + perpendicular.dx * endWidth,
+        end.dy + perpendicular.dy * endWidth,
+      )
+      ..lineTo(
+        end.dx - perpendicular.dx * endWidth,
+        end.dy - perpendicular.dy * endWidth,
+      )
+      ..lineTo(
+        entry.dx - perpendicular.dx * startWidth,
+        entry.dy - perpendicular.dy * startWidth,
+      )
+      ..close();
+    canvas.drawPath(
+      shaft,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [metal, const Color(0xFFF2F5F6), const Color(0xFF7C878D)],
+          stops: const [0.0, 0.4, 1.0],
+        ).createShader(Rect.fromPoints(entry, end)),
+    );
+    canvas.drawPath(
+      shaft,
+      Paint()
+        ..color = const Color(0xFF30383C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7,
+    );
+
+    // Roscas: pequeñas muescas perpendiculares al eje.
+    final threadPaint = Paint()
+      ..color = const Color(0xFF4A5459)
+      ..strokeWidth = 0.9 * scale
+      ..strokeCap = StrokeCap.round;
+    const threads = 4;
+    for (var index = 1; index < threads; index++) {
+      final t = index / threads;
+      final point = entry + delta * t;
+      final width = (startWidth * (1 - t) + endWidth * t) * 0.82;
+      canvas.drawLine(
+        point.translate(perpendicular.dx * width, perpendicular.dy * width),
+        point.translate(-perpendicular.dx * width, -perpendicular.dy * width),
+        threadPaint,
+      );
+    }
+
+    // Punta afilada.
+    final cone = Path()
+      ..moveTo(end.dx, end.dy)
+      ..lineTo(
+        end.dx - direction.dx * 2.6 * scale + perpendicular.dx * endWidth,
+        end.dy - direction.dy * 2.6 * scale + perpendicular.dy * endWidth,
+      )
+      ..lineTo(
+        end.dx - direction.dx * 2.6 * scale - perpendicular.dx * endWidth,
+        end.dy - direction.dy * 2.6 * scale - perpendicular.dy * endWidth,
+      )
+      ..close();
+    canvas.drawPath(cone, Paint()..color = metal);
+    canvas.drawPath(
+      cone,
+      Paint()
+        ..color = const Color(0xFF30383C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6,
+    );
+
+    // Punto de entrada y punta resaltados.
+    canvas.drawCircle(
+      entry,
+      4.2 * scale,
+      Paint()
+        ..color = const Color(0xFFFFB74D).withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    canvas.drawCircle(
+      end,
+      3.6 * scale,
+      Paint()..color = Colors.white.withValues(alpha: 0.9),
+    );
+    canvas.drawCircle(
+      end,
+      2.4 * scale,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-0.35, -0.35),
+          colors: [Color(0xFFFFC46B), Color(0xFFFF6D00)],
+        ).createShader(Rect.fromCircle(center: end, radius: 2.4 * scale)),
+    );
+    canvas.drawCircle(
+      end.translate(-0.5 * scale, -0.5 * scale),
+      0.8 * scale,
+      Paint()..color = const Color(0xFFFFF3E0),
+    );
+  }
+
+  void _drawScrew(Canvas canvas, Offset center, Offset? tip, double scale) {
+    _drawScrewShaft(canvas, center, tip, scale);
+    _drawScrewHead(canvas, center, scale);
+  }
+
+  void _drawScrewHead(Canvas canvas, Offset center, double scale) {
+    final radius = 3.4 * scale;
     canvas.drawCircle(
       center.translate(1.2 * scale, 1.4 * scale),
       radius,
@@ -342,7 +513,6 @@ class ScenePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.9,
     );
-    // Ranura en cruz.
     final slot = Paint()
       ..color = const Color(0xFF2D3438)
       ..strokeWidth = 1.35 * scale
@@ -357,7 +527,6 @@ class ScenePainter extends CustomPainter {
       center.translate(0, radius * 0.58),
       slot,
     );
-    // Reflejo.
     canvas.drawArc(
       Rect.fromCircle(
         center: center.translate(-radius * 0.2, -radius * 0.22),
@@ -373,7 +542,8 @@ class ScenePainter extends CustomPainter {
     );
   }
 
-  void _drawHinge(Canvas canvas, Offset center, double scale) {
+  void _drawHinge(Canvas canvas, Offset center, Offset? tip, double scale) {
+    _drawScrewShaft(canvas, center, tip, scale, metal: const Color(0xFFD8BE72));
     final plate = Rect.fromCenter(
       center: center,
       width: 19 * scale,
@@ -442,7 +612,8 @@ class ScenePainter extends CustomPainter {
     );
   }
 
-  void _drawSlide(Canvas canvas, Offset center, double scale) {
+  void _drawSlide(Canvas canvas, Offset center, Offset? tip, double scale) {
+    _drawScrewShaft(canvas, center, tip, scale);
     final rect = Rect.fromCenter(
       center: center,
       width: 21 * scale,
@@ -488,7 +659,8 @@ class ScenePainter extends CustomPainter {
     }
   }
 
-  void _drawHandle(Canvas canvas, Offset center, double scale) {
+  void _drawHandle(Canvas canvas, Offset center, Offset? tip, double scale) {
+    _drawScrewShaft(canvas, center, tip, scale);
     final rect = Rect.fromCenter(
       center: center,
       width: 22 * scale,
@@ -594,7 +766,7 @@ class ScenePainter extends CustomPainter {
     final width = furniture.overallSize.width;
     final depth = furniture.overallSize.depth;
     final paint = Paint()
-      ..color = const Color(0x12FFFFFF)
+      ..color = const Color(0x16F0DCC4)
       ..strokeWidth = 1;
     const projector = SceneProjector();
 

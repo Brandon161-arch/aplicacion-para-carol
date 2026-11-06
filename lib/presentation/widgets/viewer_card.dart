@@ -17,6 +17,7 @@ class ViewerCard extends StatelessWidget {
   final String? selectedPartId;
   final ValueChanged<String>? onPartSelected;
   final ValueChanged<Part>? onPartMoved;
+  final Set<String> hiddenPartIds;
 
   const ViewerCard({
     super.key,
@@ -28,6 +29,7 @@ class ViewerCard extends StatelessWidget {
     this.selectedPartId,
     this.onPartSelected,
     this.onPartMoved,
+    this.hiddenPartIds = const {},
   });
 
   @override
@@ -64,7 +66,11 @@ class ViewerCard extends StatelessWidget {
                 ],
                 StatChip(
                   icon: Icons.view_in_ar_outlined,
-                  label: countLabel(furniture.parts.length, 'pieza', 'piezas'),
+                  label: countLabel(
+                    furniture.parts.length - hiddenPartIds.length,
+                    'pieza',
+                    'piezas',
+                  ),
                 ),
               ],
             ),
@@ -86,6 +92,7 @@ class ViewerCard extends StatelessWidget {
                   selectedPartId: selectedPartId,
                   onPartSelected: onPartSelected,
                   onPartMoved: onPartMoved,
+                  hiddenPartIds: hiddenPartIds,
                 ),
               ),
             ),

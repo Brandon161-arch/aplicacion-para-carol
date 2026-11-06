@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/constants/units.dart';
 import '../../domain/entities/material.dart';
 import '../../domain/services/cut_list_calculator.dart';
@@ -98,11 +100,14 @@ class CutListTable extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: scheme.outlineVariant),
-                borderRadius: BorderRadius.circular(12),
+                color: scheme.surface,
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: 0.85),
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               ),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -135,6 +140,11 @@ class CutListTable extends StatelessWidget {
                     rows: [
                       for (final item in cutList.items)
                         DataRow(
+                          color: WidgetStatePropertyAll(
+                            cutList.items.indexOf(item).isEven
+                                ? Colors.transparent
+                                : AppTheme.rowStripe,
+                          ),
                           onSelectChanged: onItemTap == null
                               ? null
                               : (_) => onItemTap!(item),
