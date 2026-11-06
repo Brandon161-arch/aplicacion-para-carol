@@ -5,9 +5,11 @@ import '../../domain/entities/material.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
 import '../../domain/value_objects/measurement_unit.dart';
+import '../../domain/value_objects/part_shape.dart';
 import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
 import '../painters/part_palette.dart';
+import '../painters/wood_swatch_painter.dart';
 import 'interactive_flat_pattern.dart';
 import 'surface_card.dart';
 
@@ -80,6 +82,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
   late GrainDirection _grain;
   late PanelOrientation _orientation;
   late Set<PanelEdge> _bandedEdges;
+  late PartShape _shape;
   String? _error;
 
   MaterialCatalog get _catalog => widget.catalog;
@@ -103,6 +106,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
         ? _orientationForKind(_kind)
         : _inferOrientation(initial);
     _bandedEdges = {...?initial?.edgeBanding.keys};
+    _shape = initial?.shape ?? PartShape.rectangle;
 
     final cut =
         initial?.cutSize ??
@@ -299,6 +303,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
           edge: EdgeBanding(materialId: edgeMaterialId),
       },
       structural: _isStructural(_kind),
+      shape: _shape,
     );
     Navigator.of(context).pop(part);
   }
@@ -359,6 +364,7 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                     grain: _grain,
                     bandedEdges: _bandedEdges,
                     panelColor: partColor(_kind),
+                    shape: _shape,
                     onChanged: (updated) {
                       _lengthController.text = widget.displayUnit.formatValue(
                         updated.length,
@@ -560,11 +566,13 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                     Text(
                       world == null
                           ? 'Completa las medidas para ver el tamaño real.'
-                          : '${_orientation.hint}. Ocupa ${formatMm(world.width)} × ${formatMm(world.height)} × ${formatMm(world.depth)} mm (ancho × alto × fondo).',
+                          : '${_orientation.hint}. Ocupa ${formatMm(world.width)} Ã— ${formatMm(world.height)} Ã— ${formatMm(world.depth)} mm (ancho Ã— alto Ã— fondo).',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    _shapeField(),
                     const SizedBox(height: 16),
                     Text('Posición', style: theme.textTheme.titleSmall),
                     const SizedBox(height: 2),
@@ -786,6 +794,69 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
     ),
   );
 
+  Widget _shapeField() => LayoutBuilder(
+    builder: (context, constraints) {
+      final shapeSelector = DropdownButtonFormField<PartShapeKind>(
+        isExpanded: true,
+        initialValue: _shape.kind,
+        decoration: const InputDecoration(labelText: 'Forma de la pieza'),
+        items: [
+          for (final kind in PartShapeKind.values)
+            DropdownMenuItem(value: kind, child: Text(kind.label)),
+        ],
+        onChanged: (kind) {
+          if (kind == null) return;
+          setState(() => _shape = _shape.copyWith(kind: kind));
+        },
+      );
+      final extra = switch (_shape.kind) {
+        PartShapeKind.roundedRectangle => DropdownButtonFormField<double>(
+          isExpanded: true,
+          initialValue:
+              [20.0, 40.0, 60.0, 80.0, 120.0].contains(_shape.cornerRadiusMm)
+              ? _shape.cornerRadiusMm
+              : 40.0,
+          decoration: const InputDecoration(labelText: 'Radio de esquina'),
+          items: [
+            for (final radius in const [20.0, 40.0, 60.0, 80.0, 120.0])
+              DropdownMenuItem(value: radius, child: Text(' mm')),
+          ],
+          onChanged: (radius) {
+            if (radius == null) return;
+            setState(() => _shape = _shape.copyWith(cornerRadiusMm: radius));
+          },
+        ),
+        PartShapeKind.polygon => DropdownButtonFormField<int>(
+          isExpanded: true,
+          initialValue: _shape.sides,
+          decoration: const InputDecoration(labelText: 'Número de lados'),
+          items: [
+            for (final sides in const [3, 4, 5, 6, 8, 10, 12])
+              DropdownMenuItem(value: sides, child: Text(' lados')),
+          ],
+          onChanged: (sides) {
+            if (sides == null) return;
+            setState(() => _shape = _shape.copyWith(sides: sides));
+          },
+        ),
+        _ => null,
+      };
+      if (extra == null) return shapeSelector;
+      if (constraints.maxWidth >= 520) {
+        return Row(
+          children: [
+            Expanded(child: shapeSelector),
+            const SizedBox(width: 10),
+            Expanded(child: extra),
+          ],
+        );
+      }
+      return Column(
+        children: [shapeSelector, const SizedBox(height: 10), extra],
+      );
+    },
+  );
+
   Widget _materialField() => InputDecorator(
     decoration: const InputDecoration(labelText: 'Material'),
     child: DropdownButtonHideUnderline(
@@ -800,16 +871,13 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
               value: material.id,
               child: Row(
                 children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: material.colorValue == null
-                          ? partColor(_kind)
-                          : Color(material.colorValue!),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: Colors.black.withValues(alpha: 0.2),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CustomPaint(
+                        painter: WoodSwatchPainter(material: material),
                       ),
                     ),
                   ),

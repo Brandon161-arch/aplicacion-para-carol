@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/material.dart';
 import '../../domain/entities/part.dart';
 import '../providers/custom_model_providers.dart';
+import '../painters/wood_swatch_painter.dart';
 import '../providers/designer_providers.dart';
 import 'surface_card.dart';
 
@@ -84,20 +85,44 @@ class MaterialSelectorPanel extends ConsumerWidget {
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Text(
-                '${selectedMaterial.name} · ${selectedMaterial.category.label} · '
-                '${selectedMaterial.thicknessLabel} mm'
-                '${selectedMaterial.hasGrain ? ' · con veta' : ''}. '
-                'Confirma humedad, acabado y disponibilidad local antes de comprar.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 74,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: CustomPaint(
+                        painter: WoodSwatchPainter(material: selectedMaterial),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${selectedMaterial.name} · ${selectedMaterial.category.label} · '
+                      '${selectedMaterial.thicknessLabel} mm'
+                      '${selectedMaterial.hasGrain ? ' · con veta' : ''}.\n'
+                      'Confirma humedad, acabado y disponibilidad local antes de comprar.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -152,9 +177,6 @@ class _MaterialSwatch extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final color = material.colorValue == null
-        ? scheme.surfaceContainerHighest
-        : Color(material.colorValue!);
     return Tooltip(
       message:
           '${material.category.label} · ${material.thicknessLabel} mm · '
@@ -181,13 +203,18 @@ class _MaterialSwatch extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 18,
-                    height: 18,
+                    width: 22,
+                    height: 22,
                     decoration: BoxDecoration(
-                      color: color,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: Colors.black.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: CustomPaint(
+                        painter: WoodSwatchPainter(material: material),
                       ),
                     ),
                   ),

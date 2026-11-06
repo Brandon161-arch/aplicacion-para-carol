@@ -3,6 +3,7 @@ import '../entities/furniture.dart';
 import '../entities/furniture_spec.dart';
 import '../entities/part.dart';
 import '../value_objects/cut_size.dart';
+import '../value_objects/part_shape.dart';
 import '../value_objects/size3.dart';
 import '../value_objects/vector3.dart';
 
@@ -36,6 +37,11 @@ abstract final class GeometricTemplates {
     _tShape(),
     _corner(),
     _staggered(),
+    _circleTable(),
+    _ovalTable(),
+    _roundedTable(),
+    _hexagonTable(),
+    _octagonTable(),
   ];
 
   static GeometricTemplate _rectangular() {
@@ -270,6 +276,132 @@ abstract final class GeometricTemplates {
       depth,
       parts,
     );
+  }
+
+  static GeometricTemplate _circleTable() => _curvedTable(
+    'circle_table',
+    'Mesa redonda',
+    'Tapa circular de 1200 mm con pedestal central.',
+    1200,
+    1200,
+    const PartShape(kind: PartShapeKind.circle),
+  );
+
+  static GeometricTemplate _ovalTable() => _curvedTable(
+    'oval_table',
+    'Mesa ovalada',
+    'Tapa elíptica de 1800 x 1000 mm con pedestal.',
+    1800,
+    1000,
+    const PartShape(kind: PartShapeKind.ellipse),
+  );
+
+  static GeometricTemplate _roundedTable() => _curvedTable(
+    'rounded_table',
+    'Mesa redondeada',
+    'Tapa de 1600 x 900 mm con esquinas de 120 mm.',
+    1600,
+    900,
+    const PartShape(kind: PartShapeKind.roundedRectangle, cornerRadiusMm: 120),
+  );
+
+  static GeometricTemplate _hexagonTable() => _curvedTable(
+    'hexagon_table',
+    'Mesa hexagonal',
+    'Tapa hexagonal de 1400 mm.',
+    1400,
+    1400,
+    const PartShape(kind: PartShapeKind.polygon, sides: 6),
+  );
+
+  static GeometricTemplate _octagonTable() => _curvedTable(
+    'octagon_table',
+    'Mesa octagonal',
+    'Tapa octagonal de 1500 mm.',
+    1500,
+    1500,
+    const PartShape(kind: PartShapeKind.polygon, sides: 8),
+  );
+
+  static GeometricTemplate _curvedTable(
+    String id,
+    String name,
+    String description,
+    double width,
+    double depth,
+    PartShape shape,
+  ) {
+    const height = 750.0;
+    final columnWidth = width < 1400 ? 120.0 : 150.0;
+    final baseWidth = width * 0.55;
+    final baseDepth = depth * 0.55;
+    final top = Part(
+      id: '_top',
+      name: 'Tapa ',
+      kind: PartKind.desktop,
+      size: Size3(width: width, height: _thickness, depth: depth),
+      cutSize: CutSize(length: width, width: depth, thickness: _thickness),
+      materialId: 'oak_18',
+      position: Vector3(0, height - _thickness, 0),
+      grain: GrainDirection.alongLength,
+      shape: shape,
+    );
+    final column = Part(
+      id: '_column',
+      name: 'Pedestal',
+      kind: PartKind.leg,
+      size: Size3(
+        width: columnWidth,
+        height: height - _thickness,
+        depth: columnWidth,
+      ),
+      cutSize: CutSize(
+        length: height - _thickness,
+        width: columnWidth,
+        thickness: columnWidth,
+      ),
+      materialId: 'pine_18',
+      position: Vector3(
+        (width - columnWidth) / 2,
+        0,
+        (depth - columnWidth) / 2,
+      ),
+      grain: GrainDirection.alongLength,
+    );
+    final baseLong = Part(
+      id: '_base_long',
+      name: 'Base longitudinal',
+      kind: PartKind.bottomPanel,
+      size: Size3(width: baseWidth, height: _thickness, depth: columnWidth),
+      cutSize: CutSize(
+        length: baseWidth,
+        width: columnWidth,
+        thickness: _thickness,
+      ),
+      materialId: 'pine_18',
+      position: Vector3((width - baseWidth) / 2, 0, (depth - columnWidth) / 2),
+      grain: GrainDirection.alongLength,
+    );
+    final baseCross = Part(
+      id: '_base_cross',
+      name: 'Base transversal',
+      kind: PartKind.bottomPanel,
+      size: Size3(width: columnWidth, height: _thickness, depth: baseDepth),
+      cutSize: CutSize(
+        length: baseDepth,
+        width: columnWidth,
+        thickness: _thickness,
+      ),
+      materialId: 'pine_18',
+      position: Vector3((width - columnWidth) / 2, 0, (depth - baseDepth) / 2),
+      grain: GrainDirection.alongLength,
+    );
+    return _template(id, name, description, width, height, depth, [
+      top,
+      column,
+      baseLong,
+      baseCross,
+    ]);
   }
 
   static GeometricTemplate _template(

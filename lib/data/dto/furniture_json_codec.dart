@@ -8,6 +8,7 @@ import '../../domain/entities/part.dart';
 import '../../domain/entities/saved_furniture.dart';
 import '../../domain/value_objects/cut_size.dart';
 import '../../domain/value_objects/size3.dart';
+import '../../domain/value_objects/part_shape.dart';
 import '../../domain/value_objects/vector3.dart';
 
 /// Serialización completa de muebles a JSON, incluyendo piezas, uniones y mecanismos.
@@ -226,6 +227,7 @@ abstract final class FurnitureJsonCodec {
         },
     },
     'structural': part.structural,
+    'shape': part.shape.toJson(),
   };
 
   static Part partFromJson(Map<String, dynamic> json) {
@@ -270,6 +272,9 @@ abstract final class FurnitureJsonCodec {
       ),
       edgeBanding: edgeBanding,
       structural: json['structural'] != false,
+      shape: json['shape'] is Map
+          ? PartShape.fromJson((json['shape'] as Map).cast<String, dynamic>())
+          : PartShape.rectangle,
     );
   }
 

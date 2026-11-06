@@ -191,6 +191,7 @@ class FlatPatternCard extends StatelessWidget {
                     grain: item.grain,
                     bandedEdges: item.bandedEdges,
                     panelColor: partColor(item.kind),
+                    shape: item.shape,
                   ),
                   child: const SizedBox.expand(),
                 ),

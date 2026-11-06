@@ -5,7 +5,7 @@ void main() {
   final templates = GeometricTemplates.all();
 
   test('ofrece seis formas geométricas editables', () {
-    expect(templates.length, 6);
+    expect(templates.length, 11);
     expect(
       templates.map((template) => template.id),
       containsAll([

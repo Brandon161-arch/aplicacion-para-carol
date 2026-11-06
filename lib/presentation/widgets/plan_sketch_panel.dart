@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Material;
 import '../../domain/entities/material.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
+import '../../domain/value_objects/part_shape.dart';
 import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
 import 'surface_card.dart';
@@ -40,6 +41,10 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
   final List<_SketchRect> _rects = [];
   _SketchRect? _preview;
   Offset? _dragStart;
+  PartShapeKind _tool = PartShapeKind.rectangle;
+
+  PartShape get _toolShape =>
+      PartShape(kind: _tool, cornerRadiusMm: 80, sides: 6);
 
   double _snap(double value) => (value / 10).round() * 10.0;
 
@@ -56,6 +61,7 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
       z: _snap(top),
       width: math.min(width, widget.overallSize.width),
       depth: math.min(depth, widget.overallSize.depth),
+      shape: _toolShape,
     );
   }
 
@@ -70,7 +76,13 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
     final depth = rect.depth
         .clamp(50.0, widget.overallSize.depth - z)
         .toDouble();
-    return _SketchRect(x: x, z: z, width: width, depth: depth);
+    return _SketchRect(
+      x: x,
+      z: z,
+      width: width,
+      depth: depth,
+      shape: rect.shape,
+    );
   }
 
   Offset _toModel(Offset local, Size size) {
@@ -110,6 +122,7 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
           grain: (material?.hasGrain ?? false)
               ? GrainDirection.alongLength
               : GrainDirection.none,
+          shape: rect.shape,
         ),
     ];
     widget.onPartsCreated(parts);
@@ -150,6 +163,27 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
             ),
           ),
           const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final kind in const [
+                PartShapeKind.rectangle,
+                PartShapeKind.circle,
+                PartShapeKind.ellipse,
+                PartShapeKind.roundedRectangle,
+                PartShapeKind.polygon,
+              ])
+                ChoiceChip(
+                  label: Text(_toolLabel(kind)),
+                  selected: _tool == kind,
+                  visualDensity: VisualDensity.compact,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _tool = kind),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             height: 240,
             child: LayoutBuilder(
@@ -168,6 +202,7 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
                         z: point.dy,
                         width: 0,
                         depth: 0,
+                        shape: _toolShape,
                       ),
                     );
                   },
@@ -251,6 +286,14 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
     );
   }
 
+  String _toolLabel(PartShapeKind kind) => switch (kind) {
+    PartShapeKind.rectangle => 'Rect�ngulo',
+    PartShapeKind.circle => 'C�rculo',
+    PartShapeKind.ellipse => 'Elipse',
+    PartShapeKind.roundedRectangle => 'Redondeado',
+    PartShapeKind.polygon => 'Hex�gono',
+  };
+
   Color _materialColor(Material? material) {
     final value = material?.colorValue;
     return value == null ? const Color(0xFFD8A56F) : Color(value);
@@ -262,12 +305,14 @@ class _SketchRect {
   final double z;
   final double width;
   final double depth;
+  final PartShape shape;
 
   const _SketchRect({
     required this.x,
     required this.z,
     required this.width,
     required this.depth,
+    required this.shape,
   });
 }
 
@@ -333,12 +378,23 @@ class _PlanSketchPainter extends CustomPainter {
         rect.width * scale,
         rect.depth * scale,
       );
-      canvas.drawRect(
-        r,
+      final points = rect.shape.outlineFor(r.width, r.height);
+      final path = Path();
+      for (var index = 0; index < points.length; index++) {
+        final point = Offset(r.left + points[index].x, r.top + points[index].y);
+        if (index == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      path.close();
+      canvas.drawPath(
+        path,
         Paint()..color = fillColor.withValues(alpha: isPreview ? 0.35 : 0.9),
       );
-      canvas.drawRect(
-        r,
+      canvas.drawPath(
+        path,
         Paint()
           ..color = isPreview ? borderColor : const Color(0xFF4E342E)
           ..style = PaintingStyle.stroke

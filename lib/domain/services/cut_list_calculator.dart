@@ -2,6 +2,7 @@ import '../entities/furniture.dart';
 import '../entities/material.dart';
 import '../entities/part.dart';
 import '../value_objects/cut_size.dart';
+import '../value_objects/part_shape.dart';
 import 'board_nesting_calculator.dart';
 
 /// Fila del despiece. Agrupa piezas físicamente idénticas.
@@ -16,6 +17,7 @@ class CutListItem {
   final GrainDirection grain;
   final Set<PanelEdge> bandedEdges;
   final Set<String> bandingMaterialIds;
+  final PartShape shape;
 
   /// Área total de corte de la fila (todas las unidades).
   final double areaM2;
@@ -34,6 +36,7 @@ class CutListItem {
     required this.grain,
     required this.bandedEdges,
     required this.bandingMaterialIds,
+    required this.shape,
     required this.areaM2,
     required this.bandingLengthM,
   });
@@ -110,6 +113,7 @@ class CutListCalculator {
         bandingMaterialIds: representative.edgeBanding.values
             .map((banding) => banding.materialId)
             .toSet(),
+        shape: representative.shape,
         areaM2: group.areaM2,
         bandingLengthM: group.bandingLengthMm / 1000,
       );
@@ -184,6 +188,9 @@ class CutListCalculator {
       part.grain.name,
       edges.join(','),
       bandingMaterialIds.join(','),
+      part.shape.kind.name,
+      part.shape.cornerRadiusMm.round(),
+      part.shape.sides,
     ].join('|');
   }
 }

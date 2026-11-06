@@ -11,10 +11,16 @@ class ScenePart {
   final List<Vector3> corners;
   final Vector3 center;
 
+  /// Contornos inferior y superior para piezas con forma no rectangular.
+  final List<Vector3>? outlineBottom;
+  final List<Vector3>? outlineTop;
+
   const ScenePart({
     required this.part,
     required this.corners,
     required this.center,
+    this.outlineBottom,
+    this.outlineTop,
   });
 
   factory ScenePart.fromPart(
@@ -31,7 +37,31 @@ class ScenePart {
     final y1 = y0 + part.size.height;
     final z1 = z0 + part.size.depth;
 
-    var rawCorners = [
+    Vector3 transform(Vector3 value) {
+      var point = value;
+      if (rotationAngleRad != 0.0 && rotationPivot != null) {
+        final cosA = math.cos(rotationAngleRad);
+        final sinA = math.sin(rotationAngleRad);
+        final px = rotationPivot.x;
+        final pz = rotationPivot.z;
+        final relX = point.x - px;
+        final relZ = point.z - pz;
+        point = Vector3(
+          relX * cosA - relZ * sinA + px,
+          point.y,
+          relX * sinA + relZ * cosA + pz,
+        );
+      }
+      if (translation != null) {
+        point = point + translation;
+      }
+      if (explodeOffset != null) {
+        point = point + explodeOffset;
+      }
+      return point;
+    }
+
+    final rawCorners = [
       Vector3(x0, y0, z0),
       Vector3(x1, y0, z0),
       Vector3(x1, y1, z0),
@@ -40,50 +70,7 @@ class ScenePart {
       Vector3(x1, y0, z1),
       Vector3(x1, y1, z1),
       Vector3(x0, y1, z1),
-    ];
-
-    // Aplicar rotación sobre pivote si existe (para puertas abatibles)
-    if (rotationAngleRad != 0.0 && rotationPivot != null) {
-      final cosA = math.cos(rotationAngleRad);
-      final sinA = math.sin(rotationAngleRad);
-      final px = rotationPivot.x;
-      final pz = rotationPivot.z;
-
-      rawCorners = rawCorners.map((v) {
-        final relX = v.x - px;
-        final relZ = v.z - pz;
-        // Rotación alrededor del eje vertical Y
-        final rotX = relX * cosA - relZ * sinA;
-        final rotZ = relX * sinA + relZ * cosA;
-        return Vector3(rotX + px, v.y, rotZ + pz);
-      }).toList();
-    }
-
-    // Aplicar traslación (para cajones que se abren)
-    if (translation != null) {
-      rawCorners = rawCorners
-          .map(
-            (v) => Vector3(
-              v.x + translation.x,
-              v.y + translation.y,
-              v.z + translation.z,
-            ),
-          )
-          .toList();
-    }
-
-    // Aplicar explosionado
-    if (explodeOffset != null) {
-      rawCorners = rawCorners
-          .map(
-            (v) => Vector3(
-              v.x + explodeOffset.x,
-              v.y + explodeOffset.y,
-              v.z + explodeOffset.z,
-            ),
-          )
-          .toList();
-    }
+    ].map(transform).toList(growable: false);
 
     double cx = 0, cy = 0, cz = 0;
     for (final c in rawCorners) {
@@ -93,9 +80,69 @@ class ScenePart {
     }
     final center = Vector3(cx / 8, cy / 8, cz / 8);
 
-    return ScenePart(part: part, corners: rawCorners, center: center);
+    List<Vector3>? outlineBottom;
+    List<Vector3>? outlineTop;
+    if (!part.shape.isRectangular) {
+      final points = part.shape.outlineFor(
+        part.cutSize.length,
+        part.cutSize.width,
+      );
+      final thickness = part.cutSize.thickness;
+      final xSize = part.size.width;
+      final ySize = part.size.height;
+      final zSize = part.size.depth;
+      final thicknessAxis = _thicknessAxis(xSize, ySize, zSize, thickness);
+      outlineBottom = [];
+      outlineTop = [];
+      for (final point in points) {
+        switch (thicknessAxis) {
+          case _Axis.x:
+            outlineBottom.add(
+              transform(Vector3(x0, y0 + point.y, z0 + point.x)),
+            );
+            outlineTop.add(transform(Vector3(x1, y0 + point.y, z0 + point.x)));
+            break;
+          case _Axis.y:
+            outlineBottom.add(
+              transform(Vector3(x0 + point.x, y0, z0 + point.y)),
+            );
+            outlineTop.add(transform(Vector3(x0 + point.x, y1, z0 + point.y)));
+            break;
+          case _Axis.z:
+            outlineBottom.add(
+              transform(Vector3(x0 + point.x, y0 + point.y, z0)),
+            );
+            outlineTop.add(transform(Vector3(x0 + point.x, y0 + point.y, z1)));
+            break;
+        }
+      }
+    }
+
+    return ScenePart(
+      part: part,
+      corners: rawCorners,
+      center: center,
+      outlineBottom: outlineBottom,
+      outlineTop: outlineTop,
+    );
+  }
+
+  static _Axis _thicknessAxis(
+    double width,
+    double height,
+    double depth,
+    double thickness,
+  ) {
+    final candidates = [
+      (_Axis.x, (width - thickness).abs()),
+      (_Axis.y, (height - thickness).abs()),
+      (_Axis.z, (depth - thickness).abs()),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    return candidates.first.$1;
   }
 }
+
+enum _Axis { x, y, z }
 
 class SceneBuilder {
   const SceneBuilder();

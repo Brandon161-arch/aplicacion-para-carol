@@ -66,6 +66,13 @@ class _CameraBasis {
   });
 }
 
+class _FaceGeometry {
+  final List<Vector3> points;
+  final Vector3 normal;
+
+  const _FaceGeometry(this.points, this.normal);
+}
+
 class _FaceDefinition {
   final List<int> cornerIndices;
   final Vector3 normal;
@@ -186,12 +193,9 @@ class SceneProjector {
 
     for (final data in partData) {
       final scenePart = data.scenePart;
-      final corners = data.corners;
 
-      for (final face in _faces) {
-        final facePoints = [
-          for (final index in face.cornerIndices) corners[index],
-        ];
+      for (final face in _faceGeometriesFor(data)) {
+        final facePoints = face.points;
         final faceCenter = _average(facePoints);
         final toEye = basis.eye - faceCenter;
 
@@ -265,6 +269,40 @@ class SceneProjector {
       viewportWidth: viewportWidth,
       viewportHeight: viewportHeight,
     );
+  }
+
+  List<_FaceGeometry> _faceGeometriesFor(_PartRenderData data) {
+    final bottom = data.scenePart.outlineBottom;
+    final top = data.scenePart.outlineTop;
+    if (bottom == null || top == null || bottom.length < 3) {
+      return [
+        for (final face in _faces)
+          _FaceGeometry([
+            for (final index in face.cornerIndices) data.corners[index],
+          ], face.normal),
+      ];
+    }
+
+    final partCenter = data.scenePart.center;
+    Vector3 outward(List<Vector3> points) {
+      final normal = (points[1] - points[0])
+          .cross(points[2] - points[0])
+          .normalized;
+      if (normal.length < 0.5) return const Vector3(0, 1, 0);
+      final faceCenter = _average(points);
+      return normal.dot(faceCenter - partCenter) < 0 ? normal * -1 : normal;
+    }
+
+    final faces = <_FaceGeometry>[
+      _FaceGeometry(bottom, outward(bottom)),
+      _FaceGeometry(top, outward(top)),
+    ];
+    for (var index = 0; index < bottom.length; index++) {
+      final next = (index + 1) % bottom.length;
+      final quad = [bottom[index], bottom[next], top[next], top[index]];
+      faces.add(_FaceGeometry(quad, outward(quad)));
+    }
+    return faces;
   }
 
   /// Proyecta un punto suelto. Devuelve null si queda detrás de la cámara.

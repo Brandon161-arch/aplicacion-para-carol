@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/units.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
+import '../../domain/value_objects/part_shape.dart';
 
 class FlatPatternMetrics {
   final Rect panelRect;
@@ -59,6 +60,7 @@ class FlatPatternPainter extends CustomPainter {
   final Color bandingColor;
   final bool showDimensions;
   final bool showResizeHandle;
+  final PartShape shape;
 
   const FlatPatternPainter({
     required this.cutSize,
@@ -69,6 +71,7 @@ class FlatPatternPainter extends CustomPainter {
     this.bandingColor = const Color(0xFFB26A00),
     this.showDimensions = true,
     this.showResizeHandle = false,
+    this.shape = PartShape.rectangle,
   });
 
   @override
@@ -90,16 +93,11 @@ class FlatPatternPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(3)),
-      panelPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(3)),
-      borderPaint,
-    );
+    final panelPath = _shapePath(rect);
+    canvas.drawPath(panelPath, panelPaint);
+    canvas.drawPath(panelPath, borderPaint);
 
-    _drawGrain(canvas, rect);
+    _drawGrain(canvas, rect, panelPath);
     _drawBandedEdges(canvas, rect);
 
     if (showDimensions) {
@@ -119,7 +117,25 @@ class FlatPatternPainter extends CustomPainter {
     if (showResizeHandle) _drawResizeHandle(canvas, rect);
   }
 
-  void _drawGrain(Canvas canvas, Rect rect) {
+  Path _shapePath(Rect rect) {
+    final points = shape.outlineFor(rect.width, rect.height);
+    final path = Path();
+    for (var index = 0; index < points.length; index++) {
+      final point = Offset(
+        rect.left + points[index].x,
+        rect.top + points[index].y,
+      );
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  void _drawGrain(Canvas canvas, Rect rect, Path panelPath) {
     if (grain == GrainDirection.none) return;
 
     final isAlongLength = grain == GrainDirection.alongLength;
@@ -128,7 +144,7 @@ class FlatPatternPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     canvas.save();
-    canvas.clipRect(rect);
+    canvas.clipPath(panelPath);
     if (isAlongLength) {
       for (var y = rect.top + 10; y < rect.bottom; y += 18) {
         canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), paint);
@@ -174,6 +190,17 @@ class FlatPatternPainter extends CustomPainter {
   }
 
   void _drawBandedEdges(Canvas canvas, Rect rect) {
+    if (!shape.isRectangular) {
+      if (bandedEdges.isEmpty) return;
+      canvas.drawPath(
+        _shapePath(rect),
+        Paint()
+          ..color = bandingColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2,
+      );
+      return;
+    }
     final paint = Paint()
       ..color = bandingColor
       ..strokeWidth = 3.2
@@ -358,5 +385,6 @@ class FlatPatternPainter extends CustomPainter {
       oldDelegate.inkColor != inkColor ||
       oldDelegate.bandingColor != bandingColor ||
       oldDelegate.showDimensions != showDimensions ||
-      oldDelegate.showResizeHandle != showResizeHandle;
+      oldDelegate.showResizeHandle != showResizeHandle ||
+      oldDelegate.shape != shape;
 }

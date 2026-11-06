@@ -32,7 +32,7 @@ class GeometricTemplatePanel extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Formas L, U, T y esquinero armadas con paneles rectos. Cada plantilla se puede editar pieza por pieza.',
+            'Formas L, U, T, esquinero, mesas redondas, ovaladas, redondeadas y polígonos. Cada plantilla se puede editar pieza por pieza.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.35,
@@ -64,6 +64,11 @@ class GeometricTemplatePanel extends StatelessWidget {
     't_shape' => Icons.call_split,
     'corner' => Icons.vertical_split,
     'staggered' => Icons.stairs_outlined,
+    'circle_table' => Icons.circle_outlined,
+    'oval_table' => Icons.panorama_horizontal_outlined,
+    'rounded_table' => Icons.rounded_corner,
+    'hexagon_table' => Icons.hexagon_outlined,
+    'octagon_table' => Icons.change_history,
     _ => Icons.category_outlined,
   };
 }

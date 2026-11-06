@@ -1,5 +1,6 @@
 import '../../core/constants/units.dart';
 import '../value_objects/cut_size.dart';
+import '../value_objects/part_shape.dart';
 import '../value_objects/size3.dart';
 import '../value_objects/vector3.dart';
 
@@ -51,7 +52,7 @@ enum GrainDirection {
   alongWidth;
 
   String get label => switch (this) {
-    GrainDirection.none => '—',
+    GrainDirection.none => 'â€”',
     GrainDirection.alongLength => 'Largo',
     GrainDirection.alongWidth => 'Ancho',
   };
@@ -88,6 +89,9 @@ class Part {
   final Map<PanelEdge, EdgeBanding> edgeBanding;
   final bool structural;
 
+  /// Contorno de la pieza (rectángulo por defecto).
+  final PartShape shape;
+
   const Part({
     required this.id,
     required this.name,
@@ -99,6 +103,7 @@ class Part {
     this.grain = GrainDirection.none,
     this.edgeBanding = const {},
     this.structural = true,
+    this.shape = PartShape.rectangle,
   });
 
   Part copyWith({
@@ -112,6 +117,7 @@ class Part {
     GrainDirection? grain,
     Map<PanelEdge, EdgeBanding>? edgeBanding,
     bool? structural,
+    PartShape? shape,
   }) => Part(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -123,6 +129,7 @@ class Part {
     grain: grain ?? this.grain,
     edgeBanding: edgeBanding ?? this.edgeBanding,
     structural: structural ?? this.structural,
+    shape: shape ?? this.shape,
   );
 
   Vector3 get center => Vector3(
@@ -131,10 +138,14 @@ class Part {
     position.z + size.depth / 2,
   );
 
-  double get cutAreaM2 => cutSize.areaM2;
+  double get cutAreaM2 =>
+      shape.areaMm2(cutSize.length, cutSize.width) / 1000000;
 
   /// Longitud total de canto de esta pieza, en milímetros.
   double get bandingLengthMm {
+    if (!shape.isRectangular) {
+      return shape.perimeterMm(cutSize.length, cutSize.width);
+    }
     var total = 0.0;
     for (final edge in edgeBanding.keys) {
       total += switch (edge) {

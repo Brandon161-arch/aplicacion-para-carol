@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/part.dart';
 import '../../domain/value_objects/cut_size.dart';
+import '../../domain/value_objects/part_shape.dart';
 import '../painters/flat_pattern_painter.dart';
 
 /// Plantilla que permite cambiar largo y ancho arrastrando el tirador naranja.
@@ -13,6 +14,7 @@ class InteractiveFlatPattern extends StatefulWidget {
   final Set<PanelEdge> bandedEdges;
   final Color panelColor;
   final ValueChanged<CutSize> onChanged;
+  final PartShape shape;
 
   const InteractiveFlatPattern({
     super.key,
@@ -21,6 +23,7 @@ class InteractiveFlatPattern extends StatefulWidget {
     required this.bandedEdges,
     required this.panelColor,
     required this.onChanged,
+    this.shape = PartShape.rectangle,
   });
 
   @override
@@ -67,6 +70,7 @@ class _InteractiveFlatPatternState extends State<InteractiveFlatPattern> {
                 bandedEdges: widget.bandedEdges,
                 panelColor: widget.panelColor,
                 showResizeHandle: true,
+                shape: widget.shape,
               ),
               child: const SizedBox.expand(),
             ),

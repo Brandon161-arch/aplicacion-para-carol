@@ -176,6 +176,7 @@ class PartDetailDialog extends StatelessWidget {
                           grain: item.grain,
                           bandedEdges: item.bandedEdges,
                           panelColor: partColor(part.kind),
+                          shape: item.shape,
                         ),
                         child: const SizedBox.expand(),
                       ),
