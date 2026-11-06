@@ -20,6 +20,26 @@ Color partColor(PartKind kind) => switch (kind) {
   PartKind.other => const Color(0xFFC89B6A),
 };
 
+/// Color visible del material. Permite distinguir maderas y tableros en 3D.
+Color materialColorFor(String materialId, PartKind kind) {
+  final color = switch (materialId) {
+    'pine_18' => 0xFFE3C08A,
+    'oak_18' => 0xFFA9753F,
+    'teak_18' => 0xFFB98545,
+    'cedar_18' => 0xFFC58A56,
+    'walnut_18' => 0xFF6E4630,
+    'plywood_18' => 0xFFD2A76F,
+    'mdf_rh_18' => 0xFFB49B7A,
+    'particleboard_18' => 0xFFC9A98A,
+    'mdf_15' || 'mdf_18' || 'mdf_25' => 0xFFD9C3A3,
+    'mdf_5' => 0xFFE4D3B6,
+    'solid_wood_60' => 0xFFB07A45,
+    _ => null,
+  };
+  if (color == null) return partColor(kind);
+  return Color(color);
+}
+
 IconData partIcon(PartKind kind) => switch (kind) {
   PartKind.sidePanel => Icons.view_sidebar_outlined,
   PartKind.topPanel => Icons.vertical_align_top,

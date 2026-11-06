@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../domain/entities/drilling_hole.dart';
 import '../../domain/entities/furniture.dart';
@@ -21,7 +22,8 @@ class _AssemblyAndExportDialog extends StatefulWidget {
   const _AssemblyAndExportDialog({required this.furniture});
 
   @override
-  State<_AssemblyAndExportDialog> createState() => _AssemblyAndExportDialogState();
+  State<_AssemblyAndExportDialog> createState() =>
+      _AssemblyAndExportDialogState();
 }
 
 class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
@@ -32,7 +34,7 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -68,7 +70,7 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 680),
+        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 680),
         child: Column(
           children: [
             // Cabecera del diálogo
@@ -76,7 +78,9 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
               ),
               child: Row(
                 children: [
@@ -88,7 +92,9 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
                       children: [
                         Text(
                           'Manual de Taller & Exportaciones Industriales',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           '${widget.furniture.name} · Dificultad: ${manual.difficulty} · ~${manual.estimatedTimeMinutes} min',
@@ -109,9 +115,19 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
             TabBar(
               controller: _tabController,
               tabs: const [
-                Tab(icon: Icon(Icons.construction, size: 18), text: 'Manual de Armado'),
-                Tab(icon: Icon(Icons.grain, size: 18), text: 'Mapas de Perforación'),
-                Tab(icon: Icon(Icons.download, size: 18), text: 'Exportación Industrial'),
+                Tab(
+                  icon: Icon(Icons.construction, size: 18),
+                  text: 'Manual de Armado',
+                ),
+                Tab(
+                  icon: Icon(Icons.grain, size: 18),
+                  text: 'Mapas de Perforación',
+                ),
+                Tab(
+                  icon: Icon(Icons.download, size: 18),
+                  text: 'Exportación Industrial',
+                ),
+                Tab(icon: Icon(Icons.qr_code, size: 18), text: 'Etiquetas QR'),
               ],
             ),
 
@@ -128,6 +144,9 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
 
                   // Pestaña 3: Exportación Industrial (DXF, G-Code, CSV seccionadora)
                   _buildExportTab(theme, exporter),
+
+                  // Pestaña 4: Etiquetas QR por pieza
+                  _buildQrLabelsTab(theme),
                 ],
               ),
             ),
@@ -152,7 +171,10 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
             children: [
               Text(
                 'Paso ${_currentStepIndex + 1} de ${manual.totalSteps}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
               Row(
                 children: [
@@ -203,22 +225,33 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
                 ),
                 const SizedBox(height: 12),
                 if (currentStep.partNames.isNotEmpty) ...[
-                  const Text('Piezas involucradas:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  const Text(
+                    'Piezas involucradas:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
                     children: currentStep.partNames
-                        .map((name) => Chip(
-                              label: Text(name, style: const TextStyle(fontSize: 11)),
-                              visualDensity: VisualDensity.compact,
-                            ))
+                        .map(
+                          (name) => Chip(
+                            label: Text(
+                              name,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        )
                         .toList(),
                   ),
                   const SizedBox(height: 10),
                 ],
                 if (currentStep.fastenersNeeded.isNotEmpty) ...[
-                  const Text('Herrajes requeridos:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  const Text(
+                    'Herrajes requeridos:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
                   for (final f in currentStep.fastenersNeeded)
                     Padding(
                       padding: const EdgeInsets.only(left: 6, top: 2),
@@ -232,16 +265,25 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: Colors.amber.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                        const Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: Colors.amber,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             currentStep.safetyWarning,
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -253,16 +295,21 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
           const SizedBox(height: 16),
 
           // Herramientas necesarias del proyecto
-          Text('Herramientas recomendadas para el ensamble:', style: theme.textTheme.titleSmall),
+          Text(
+            'Herramientas recomendadas para el ensamble:',
+            style: theme.textTheme.titleSmall,
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: manual.toolsRequired
-                .map((t) => Chip(
-                      avatar: const Icon(Icons.handyman, size: 14),
-                      label: Text(t, style: const TextStyle(fontSize: 11)),
-                    ))
+                .map(
+                  (t) => Chip(
+                    avatar: const Icon(Icons.handyman, size: 14),
+                    label: Text(t, style: const TextStyle(fontSize: 11)),
+                  ),
+                )
                 .toList(),
           ),
         ],
@@ -270,7 +317,10 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
     );
   }
 
-  Widget _buildDrillingTab(ThemeData theme, Map<String, PartDrillingPattern> patterns) {
+  Widget _buildDrillingTab(
+    ThemeData theme,
+    Map<String, PartDrillingPattern> patterns,
+  ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: patterns.length,
@@ -285,17 +335,25 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
             ),
             subtitle: Text(
               '${pattern.holeCount} perforación(es) detectadas',
-              style: TextStyle(fontSize: 11, color: theme.textTheme.bodySmall?.color),
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.textTheme.bodySmall?.color,
+              ),
             ),
             children: [
               if (pattern.holes.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(12),
-                  child: Text('Esta pieza no requiere perforaciones mecanizadas.'),
+                  child: Text(
+                    'Esta pieza no requiere perforaciones mecanizadas.',
+                  ),
                 )
               else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Column(
                     children: [
                       for (final h in pattern.holes)
@@ -320,7 +378,10 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
                               ),
                               Text(
                                 'Ø${h.diameterMm.round()}×${h.depthMm.round()}mm',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
                               ),
                             ],
                           ),
@@ -411,10 +472,28 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(description, style: TextStyle(fontSize: 11, color: theme.textTheme.bodySmall?.color)),
-                Text('Tamaño: $previewLength', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic)),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                ),
+                Text(
+                  'Tamaño: $previewLength',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ],
             ),
           ),
@@ -428,6 +507,107 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQrLabelsTab(ThemeData theme) {
+    final parts = widget.furniture.parts;
+    final scheme = theme.colorScheme;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: parts.length,
+      itemBuilder: (context, index) {
+        final part = parts[index];
+        final qrData =
+            'MUEBLE_MAESTRO|ID:${part.id}|NOMBRE:${part.name}|DIM:${part.cutSize.length}x${part.cutSize.width}x${part.cutSize.thickness}mm|MATERIAL:${part.materialId}';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Código QR interactivo
+                Container(
+                  width: 90,
+                  height: 90,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: QrImageView(
+                    data: qrData,
+                    version: QrVersions.auto,
+                    size: 80.0,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Información de etiqueta para taller
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            part.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          Chip(
+                            label: Text(
+                              'ID: ${part.id}',
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Dimensiones: ${part.cutSize.length.round()} × ${part.cutSize.width.round()} × ${part.cutSize.thickness.round()} mm',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: scheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Veta: ${part.grain.name} · Cantos: ${part.edgeBanding.length} lado(s)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.textTheme.bodySmall?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '📱 Escanea en taller para resaltar la pieza en el visor 3D',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.blueGrey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

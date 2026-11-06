@@ -33,7 +33,9 @@ abstract final class FurnitureJsonCodec {
     },
     'parts': furniture.parts.map(partToJson).toList(growable: false),
     'joints': furniture.joints.map(jointToJson).toList(growable: false),
-    'mechanisms': furniture.mechanisms.map(mechanismToJson).toList(growable: false),
+    'mechanisms': furniture.mechanisms
+        .map(mechanismToJson)
+        .toList(growable: false),
   };
 
   static Furniture furnitureFromJson(Map<String, dynamic> json) {
@@ -148,11 +150,7 @@ abstract final class FurnitureJsonCodec {
         'slideSpec': mech.slideSpec,
       };
     }
-    return {
-      'type': 'generic',
-      'id': mech.id,
-      'partIds': mech.partIds,
-    };
+    return {'type': 'generic', 'id': mech.id, 'partIds': mech.partIds};
   }
 
   static Mechanism? mechanismFromJson(Map<String, dynamic> json) {
@@ -165,10 +163,18 @@ abstract final class FurnitureJsonCodec {
         id: id,
         partIds: partIds,
         doorPartId: _asString(json['doorPartId']),
-        hingeSide: _enumByName(HingeSide.values, json['hingeSide'], HingeSide.left),
+        hingeSide: _enumByName(
+          HingeSide.values,
+          json['hingeSide'],
+          HingeSide.left,
+        ),
         maxOpenAngleDeg: _asDouble(json['maxOpenAngleDeg']),
         hingeCount: _asInt(json['hingeCount']),
-        hingeKind: _enumByName(HardwareKind.values, json['hingeKind'], HardwareKind.hinge),
+        hingeKind: _enumByName(
+          HardwareKind.values,
+          json['hingeKind'],
+          HardwareKind.hinge,
+        ),
         hingeSpec: _asStringOrNull(json['hingeSpec']),
       );
     } else if (type == 'drawer') {
@@ -176,9 +182,15 @@ abstract final class FurnitureJsonCodec {
         id: id,
         partIds: partIds,
         frontPartId: _asString(json['frontPartId']),
-        boxPartIds: _asList(json['boxPartIds']).map((e) => e.toString()).toList(),
+        boxPartIds: _asList(json['boxPartIds'])
+            .map((e) => e.toString())
+            .toList(),
         travelMm: _asDouble(json['travelMm']),
-        slideKind: _enumByName(HardwareKind.values, json['slideKind'], HardwareKind.drawerSlide),
+        slideKind: _enumByName(
+          HardwareKind.values,
+          json['slideKind'],
+          HardwareKind.drawerSlide,
+        ),
         slideSpec: _asStringOrNull(json['slideSpec']),
       );
     }

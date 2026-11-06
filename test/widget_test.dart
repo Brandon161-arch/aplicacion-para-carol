@@ -155,6 +155,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('ofrece maderas y dibuja paneles con el mouse', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Crear'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Maderas y tableros'));
+    await tester.pumpAndSettle();
+    expect(find.text('Roble 18 mm'), findsOneWidget);
+    await tester.tap(find.text('Roble 18 mm'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('Maderas y tableros')),
+    );
+    expect(container.read(customModelProvider).defaultMaterialId, 'oak_18');
+
+    final canvas = find.byKey(const Key('plan_sketch_canvas'));
+    await tester.ensureVisible(canvas);
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(canvas);
+    final gesture = await tester.startGesture(
+      rect.topLeft + const Offset(20, 20),
+    );
+    await gesture.moveBy(const Offset(80, 55));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Crear 1 pieza'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('sketch_create_parts')));
+    await tester.pumpAndSettle();
+    expect(container.read(customModelProvider).parts.length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('permite ajustar largo con el tirador de la plantilla', (
     tester,
   ) async {
@@ -275,7 +309,7 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    final editPrices = find.byTooltip('Editar precios y desperdicio');
+    final editPrices = find.byTooltip('Editar precios y tarifas');
     await tester.ensureVisible(editPrices);
     await tester.tap(editPrices);
     await tester.pumpAndSettle();
@@ -305,7 +339,7 @@ void main() {
 
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();
-    final editPrices = find.byTooltip('Editar precios y desperdicio');
+    final editPrices = find.byTooltip('Editar precios y tarifas');
     await tester.ensureVisible(editPrices);
     await tester.tap(editPrices);
     await tester.pumpAndSettle();

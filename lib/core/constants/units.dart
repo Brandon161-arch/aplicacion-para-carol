@@ -32,7 +32,9 @@ String countLabel(int count, String singular, String plural) =>
 /// Formatea centavos como pesos colombianos sin centavos visibles.
 String formatMoney(int cents, {String currency = 'COP'}) {
   final minorUnits = cents.abs();
-  final wholeUnits = currency == 'COP' ? (cents / 100).round() : minorUnits ~/ 100;
+  final wholeUnits = currency == 'COP'
+      ? (cents / 100).round()
+      : minorUnits ~/ 100;
   final digits = wholeUnits.abs().toString();
   final grouped = StringBuffer();
   for (var index = 0; index < digits.length; index++) {

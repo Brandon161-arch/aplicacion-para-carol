@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/units.dart';
 import '../../domain/entities/furniture.dart';
+import '../../domain/generators/geometric_templates.dart';
 import '../../domain/entities/part.dart';
 import '../../domain/services/cut_list_calculator.dart';
 import '../../domain/services/manufacturability_validator.dart';
@@ -18,9 +19,12 @@ import '../providers/project_context_provider.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/flat_patterns_panel.dart';
 import '../widgets/furniture_estimate_panel.dart';
+import '../widgets/geometric_template_panel.dart';
+import '../widgets/material_selector_panel.dart';
 import '../widgets/mm_field.dart';
 import '../widgets/part_detail_dialog.dart';
 import '../widgets/part_editor_dialog.dart';
+import '../widgets/plan_sketch_panel.dart';
 import '../widgets/regional_material_panel.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/viewer_card.dart';
@@ -34,8 +38,10 @@ class CreateScreen extends ConsumerStatefulWidget {
 
 class _CreateScreenState extends ConsumerState<CreateScreen> {
   late final TextEditingController _nameController;
+  final ScrollController _scrollController = ScrollController();
   String? _selectedPartId;
   bool _moveMode = true;
+  bool _sketchDrawing = false;
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -161,6 +168,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         defaultThickness: draft.settings.panelThicknessMm,
         initialPart: initial,
         displayUnit: displayUnit,
+        initialMaterialId: draft.defaultMaterialId,
       );
       if (result == null || !mounted) return;
       if (initial == null) {
@@ -283,6 +291,71 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       _snack(context, 'Plantilla "$name" cargada. Puedes editarla.');
     }
 
+    Future<void> loadGeometricTemplate(GeometricTemplate template) async {
+      if (draft.parts.isNotEmpty) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Cargar forma geométrica'),
+            content: Text(
+              'Se reemplazará el mueble actual por "${template.name}". ¿Continuar?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Cargar'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        if (!context.mounted) return;
+      }
+      controller.loadFurniture(template.furniture, name: template.name);
+      setState(() => _selectedPartId = null);
+      _snack(context, '${template.name}: ${template.description}');
+    }
+
+    void addSketchParts(List<Part> parts) {
+      controller.addParts(parts);
+      final updated = ref.read(customModelProvider);
+      if (updated.parts.isNotEmpty) {
+        setState(() => _selectedPartId = updated.parts.last.id);
+      }
+      _snack(
+        context,
+        'Se agregaron ${parts.length} pieza(s) desde el dibujo de planta.',
+      );
+    }
+
+    void stackSelected(Part part) {
+      var targetY = 0.0;
+      for (final other in draft.parts) {
+        if (other.id == part.id) continue;
+        final overlapX =
+            math.min(
+              part.position.x + part.size.width,
+              other.position.x + other.size.width,
+            ) -
+            math.max(part.position.x, other.position.x);
+        final overlapZ =
+            math.min(
+              part.position.z + part.size.depth,
+              other.position.z + other.size.depth,
+            ) -
+            math.max(part.position.z, other.position.z);
+        if (overlapX > 1 && overlapZ > 1) {
+          targetY = math.max(targetY, other.position.y + other.size.height);
+        }
+      }
+      updatePartPosition(part, y: targetY);
+      _snack(context, 'Pieza apilada a ${formatMm(targetY)} mm de altura.');
+    }
+
     final leftPanel = Column(
       children: [
         SurfaceCard(
@@ -390,6 +463,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
           ),
         ),
         const SizedBox(height: 14),
+        MaterialSelectorPanel(selectedPartId: _selectedPartId),
+        const SizedBox(height: 14),
         SurfaceCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,6 +527,21 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 14),
+        GeometricTemplatePanel(onSelected: loadGeometricTemplate),
+        const SizedBox(height: 14),
+        PlanSketchPanel(
+          overallSize: draft.overallSize,
+          thickness: draft.settings.panelThicknessMm,
+          materialId: draft.defaultMaterialId,
+          catalog: catalog,
+          onPartsCreated: addSketchParts,
+          onDrawingChanged: (drawing) {
+            if (_sketchDrawing != drawing) {
+              setState(() => _sketchDrawing = drawing);
+            }
+          },
         ),
         const SizedBox(height: 14),
         const RegionalMaterialPanel(),
@@ -672,6 +762,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
         part: selected,
         onEdit: () => addPart(initial: selected),
         onFloor: () => updatePartPosition(selected, y: 0),
+        onStack: () => stackSelected(selected),
         onUp: () => updatePartPosition(selected, y: selected.position.y + 10),
         onDown: () => updatePartPosition(selected, y: selected.position.y - 10),
         onCenterX: () => updatePartPosition(
@@ -782,6 +873,8 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
             : Column(children: [leftPanel, const SizedBox(height: 20), main]);
 
         return SingleChildScrollView(
+          controller: _scrollController,
+          physics: _sketchDrawing ? const NeverScrollableScrollPhysics() : null,
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           child: Center(
             child: ConstrainedBox(
@@ -817,6 +910,7 @@ class _SelectedPartToolbar extends StatelessWidget {
   final Part part;
   final VoidCallback onEdit;
   final VoidCallback onFloor;
+  final VoidCallback onStack;
   final VoidCallback onUp;
   final VoidCallback onDown;
   final VoidCallback onCenterX;
@@ -828,6 +922,7 @@ class _SelectedPartToolbar extends StatelessWidget {
     required this.part,
     required this.onEdit,
     required this.onFloor,
+    required this.onStack,
     required this.onUp,
     required this.onDown,
     required this.onCenterX,
@@ -862,6 +957,11 @@ class _SelectedPartToolbar extends StatelessWidget {
             tooltip: 'Editar medidas',
             icon: Icons.straighten,
             onPressed: onEdit,
+          ),
+          _ToolIconButton(
+            tooltip: 'Apilar sobre la pieza de abajo',
+            icon: Icons.vertical_align_center,
+            onPressed: onStack,
           ),
           _ToolIconButton(
             tooltip: 'Poner en el piso',

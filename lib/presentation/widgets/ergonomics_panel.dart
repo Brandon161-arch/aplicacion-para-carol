@@ -32,7 +32,7 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
     final statusColor = switch (report.overallStatus) {
       ErgonomicStatus.optimal => const Color(0xFF2E7D32), // Verde
       ErgonomicStatus.caution => const Color(0xFFF57C00), // Amarillo/Naranja
-      ErgonomicStatus.hazard => const Color(0xFFD32F2F),  // Rojo
+      ErgonomicStatus.hazard => const Color(0xFFD32F2F), // Rojo
     };
 
     final statusLabel = switch (report.overallStatus) {
@@ -53,7 +53,11 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
         children: [
           Row(
             children: [
-              Icon(Icons.accessibility_new_rounded, color: scheme.primary, size: 22),
+              Icon(
+                Icons.accessibility_new_rounded,
+                color: scheme.primary,
+                size: 22,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -61,11 +65,15 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                   children: [
                     Text(
                       'Ergonomía & Antropometría',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       'Semáforo ergonómico y postura',
-                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -92,10 +100,18 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Estatura del usuario:',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          const Expanded(
+                            child: Text(
+                              'Estatura del usuario:',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '${_userHeight.round()} cm',
                             style: TextStyle(
@@ -180,8 +196,8 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                   color: alert.status == ErgonomicStatus.optimal
                       ? Colors.green.withValues(alpha: 0.25)
                       : (alert.status == ErgonomicStatus.hazard
-                          ? Colors.red.withValues(alpha: 0.4)
-                          : Colors.orange.withValues(alpha: 0.3)),
+                            ? Colors.red.withValues(alpha: 0.4)
+                            : Colors.orange.withValues(alpha: 0.3)),
                 ),
               ),
               child: Column(
@@ -190,10 +206,18 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        alert.dimensionName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      Expanded(
+                        child: Text(
+                          alert.dimensionName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${alert.currentValueMm.round()} mm',
                         style: TextStyle(
@@ -201,7 +225,9 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                           fontSize: 12,
                           color: alert.status == ErgonomicStatus.optimal
                               ? Colors.green
-                              : (alert.status == ErgonomicStatus.hazard ? Colors.red : Colors.orange),
+                              : (alert.status == ErgonomicStatus.hazard
+                                    ? Colors.red
+                                    : Colors.orange),
                         ),
                       ),
                     ],
@@ -209,7 +235,12 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                   const SizedBox(height: 4),
                   Text(
                     alert.explanation,
-                    style: TextStyle(fontSize: 11.5, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.85)),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: theme.textTheme.bodyMedium?.color?.withValues(
+                        alpha: 0.85,
+                      ),
+                    ),
                   ),
                   if (alert.needsAdjustment) ...[
                     const SizedBox(height: 6),
@@ -219,21 +250,32 @@ class _ErgonomicsPanelState extends ConsumerState<ErgonomicsPanel> {
                         Expanded(
                           child: Text(
                             alert.recommendation,
-                            style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
                         TextButton.icon(
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           onPressed: () {
                             // Ajustar altura automáticamente a la recomendada
-                            ref.read(designerProvider.notifier).updateOverallSize(height: alert.idealValueMm);
+                            ref
+                                .read(designerProvider.notifier)
+                                .updateOverallSize(height: alert.idealValueMm);
                           },
                           icon: const Icon(Icons.auto_fix_high, size: 14),
-                          label: const Text('Auto-ajustar', style: TextStyle(fontSize: 11)),
+                          label: const Text(
+                            'Auto-ajustar',
+                            style: TextStyle(fontSize: 11),
+                          ),
                         ),
                       ],
                     ),

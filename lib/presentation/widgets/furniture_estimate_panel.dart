@@ -372,7 +372,10 @@ class _HardwareRow extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    formatMoney(requirement.totalPriceCents, currency: currency),
+                    formatMoney(
+                      requirement.totalPriceCents,
+                      currency: currency,
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -436,9 +439,11 @@ class _CostSummaryCardState extends State<CostSummaryCard> {
 
     // Cálculos de PVP Comercial
     final productionCost = report.grandTotalCents;
-    final marginCents = (productionCost * (_profitMarginPercent / 100.0)).round();
+    final marginCents = (productionCost * (_profitMarginPercent / 100.0))
+        .round();
     final subtotalWithMargin = productionCost + marginCents;
-    final taxWithMarginCents = (subtotalWithMargin * (report.taxPercent / 100.0)).round();
+    final taxWithMarginCents =
+        (subtotalWithMargin * (report.taxPercent / 100.0)).round();
     final pvpTotalCents = subtotalWithMargin + taxWithMarginCents;
 
     return SurfaceCard(
@@ -454,7 +459,9 @@ class _CostSummaryCardState extends State<CostSummaryCard> {
                   children: [
                     Text(
                       'Costo de Fabricación',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -544,16 +551,30 @@ class _CostSummaryCardState extends State<CostSummaryCard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Margen de Utilidad:',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    const Expanded(
+                      child: Text(
+                        'Margen de Utilidad:',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                    Text(
-                      '${_profitMarginPercent.round()}% (+${formatMoney(marginCents, currency: report.currency)})',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: scheme.primary,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_profitMarginPercent.round()}% (+${formatMoney(marginCents, currency: report.currency)})',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: scheme.primary,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -569,23 +590,40 @@ class _CostSummaryCardState extends State<CostSummaryCard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'PVP Recomendado:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    const Expanded(
+                      child: Text(
+                        'PVP Recomendado:',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
-                    Text(
-                      formatMoney(pvpTotalCents, currency: report.currency),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: scheme.primary,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          formatMoney(pvpTotalCents, currency: report.currency),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: scheme.primary,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
                 Text(
                   'Precio final sugerido al cliente con impuestos y utilidad',
-                  style: TextStyle(fontSize: 10.5, color: theme.textTheme.bodySmall?.color),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
                 ),
               ],
             ),
@@ -596,7 +634,8 @@ class _CostSummaryCardState extends State<CostSummaryCard> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => showAssemblyAndExportDialog(context, widget.furniture),
+              onPressed: () =>
+                  showAssemblyAndExportDialog(context, widget.furniture),
               icon: const Icon(Icons.print_outlined, size: 18),
               label: const Text('Manual de Armado & Planos DXF/G-Code'),
             ),

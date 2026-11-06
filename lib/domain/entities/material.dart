@@ -70,6 +70,10 @@ class Material {
 
   /// Precio del canto en centavos por metro lineal.
   final int? edgeBandingPricePerMeterCents;
+
+  /// Color ARGB usado para representar el material en el visor 3D.
+  final int? colorValue;
+
   final String? priceSource;
   final String? priceNote;
 
@@ -83,6 +87,7 @@ class Material {
     this.sheetSize,
     this.hasGrain = false,
     this.edgeBandingPricePerMeterCents,
+    this.colorValue,
     this.priceSource,
     this.priceNote,
   });
@@ -97,6 +102,7 @@ class Material {
     int? priceCents,
     bool? hasGrain,
     int? edgeBandingPricePerMeterCents,
+    int? colorValue,
     String? priceSource,
     String? priceNote,
   }) => Material(
@@ -110,6 +116,7 @@ class Material {
     hasGrain: hasGrain ?? this.hasGrain,
     edgeBandingPricePerMeterCents:
         edgeBandingPricePerMeterCents ?? this.edgeBandingPricePerMeterCents,
+    colorValue: colorValue ?? this.colorValue,
     priceSource: priceSource ?? this.priceSource,
     priceNote: priceNote ?? this.priceNote,
   );

@@ -29,6 +29,7 @@ Future<Part?> showPartEditorDialog(
   required double defaultThickness,
   Part? initialPart,
   MeasurementUnit displayUnit = MeasurementUnit.millimeter,
+  String? initialMaterialId,
 }) {
   return showDialog<Part>(
     context: context,
@@ -38,6 +39,7 @@ Future<Part?> showPartEditorDialog(
       defaultThickness: defaultThickness,
       initialPart: initialPart,
       displayUnit: displayUnit,
+      initialMaterialId: initialMaterialId,
     ),
   );
 }
@@ -48,6 +50,7 @@ class PartEditorDialog extends StatefulWidget {
   final double defaultThickness;
   final Part? initialPart;
   final MeasurementUnit displayUnit;
+  final String? initialMaterialId;
 
   const PartEditorDialog({
     super.key,
@@ -56,6 +59,7 @@ class PartEditorDialog extends StatefulWidget {
     required this.defaultThickness,
     this.displayUnit = MeasurementUnit.millimeter,
     this.initialPart,
+    this.initialMaterialId,
   });
 
   @override
@@ -88,9 +92,9 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
   void initState() {
     super.initState();
     final initial = widget.initialPart;
-    final material = initial == null
-        ? _catalog.byId('mdf_18') ?? _panelMaterials.first
-        : _catalog.byId(initial.materialId) ?? _panelMaterials.first;
+    final preferredId =
+        initial?.materialId ?? widget.initialMaterialId ?? 'mdf_18';
+    final material = _catalog.byId(preferredId) ?? _panelMaterials.first;
 
     _kind = initial?.kind ?? PartKind.shelf;
     _materialId = material.id;
@@ -792,7 +796,34 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
             : _panelMaterials.first.id,
         items: [
           for (final material in _panelMaterials)
-            DropdownMenuItem(value: material.id, child: Text(material.name)),
+            DropdownMenuItem(
+              value: material.id,
+              child: Row(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: material.colorValue == null
+                          ? partColor(_kind)
+                          : Color(material.colorValue!),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: 0.2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      material.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
         onChanged: _onMaterialChanged,
       ),

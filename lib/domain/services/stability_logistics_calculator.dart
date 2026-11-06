@@ -10,7 +10,8 @@ class StabilityReport {
   final Vector3 centerOfGravityMm;
   final double totalMassKg;
   final bool isTipOverRisk;
-  final double tipOverRiskRatio; // Relación momento de vuelco vs momento estabilizador
+  final double
+  tipOverRiskRatio; // Relación momento de vuelco vs momento estabilizador
   final String safetyLevel; // 'safe', 'warning', 'danger'
   final String safetyRecommendation;
   final bool wallAnchorRequired;
@@ -70,9 +71,9 @@ class StabilityLogisticsCalculator {
   static double getMaterialDensity(MaterialCategory category) {
     return switch (category) {
       MaterialCategory.particleboard => 650.0, // Aglomerado estándar MDP
-      MaterialCategory.mdf => 750.0,           // MDF
-      MaterialCategory.plywood => 600.0,       // Triplex / contrachapado
-      MaterialCategory.solidWood => 680.0,     // Madera maciza pino/roble promedio
+      MaterialCategory.mdf => 750.0, // MDF
+      MaterialCategory.plywood => 600.0, // Triplex / contrachapado
+      MaterialCategory.solidWood => 680.0, // Madera maciza pino/roble promedio
       MaterialCategory.glass => 2500.0,
       MaterialCategory.metal => 7800.0,
       MaterialCategory.hpl => 1400.0,
@@ -81,7 +82,10 @@ class StabilityLogisticsCalculator {
   }
 
   /// Calcula el Centro de Gravedad (CoG) y la estabilidad ante vuelco.
-  StabilityReport calculateStability(Furniture furniture, MaterialCatalog catalog) {
+  StabilityReport calculateStability(
+    Furniture furniture,
+    MaterialCatalog catalog,
+  ) {
     double totalMass = 0.0;
     double momentX = 0.0;
     double momentY = 0.0;
@@ -89,10 +93,13 @@ class StabilityLogisticsCalculator {
 
     for (final part in furniture.parts) {
       final material = catalog.byId(part.materialId);
-      final density = getMaterialDensity(material?.category ?? MaterialCategory.particleboard);
+      final density = getMaterialDensity(
+        material?.category ?? MaterialCategory.particleboard,
+      );
 
       // Volumen en m³: W * H * D en mm convertidos a m
-      final volM3 = (part.size.width * part.size.height * part.size.depth) / 1e9;
+      final volM3 =
+          (part.size.width * part.size.height * part.size.depth) / 1e9;
       final massKg = volM3 * density;
 
       // Centro geométrico de la pieza
@@ -133,9 +140,14 @@ class StabilityLogisticsCalculator {
     final cogRelativeHeight = h > 0 ? cog.y / h : 0.5;
 
     // Supongamos fuerza horizontal accidental en la parte superior de 50 N o niño colgando de cajón abierto (23 kg / 225 N)
-    final double stabilizingMoment = totalMass * (d / 2); // Momento que mantiene el mueble firme
-    final double overturningMoment = 225.0 * (h / 1000.0); // Momento con carga vertical en borde frontal abierto
-    final double safetyRatio = stabilizingMoment > 0 ? overturningMoment / stabilizingMoment : 999.0;
+    final double stabilizingMoment =
+        totalMass * (d / 2); // Momento que mantiene el mueble firme
+    final double overturningMoment =
+        225.0 *
+        (h / 1000.0); // Momento con carga vertical en borde frontal abierto
+    final double safetyRatio = stabilizingMoment > 0
+        ? overturningMoment / stabilizingMoment
+        : 999.0;
 
     final bool isTall = h >= 900;
     final bool isSlender = heightToDepthRatio >= 2.8;
@@ -150,7 +162,8 @@ class StabilityLogisticsCalculator {
       tipRisk = true;
       wallAnchor = true;
       level = 'danger';
-      recommendation = '⚠️ RIESGO CRÍTICO DE VUELCO: Mueble alto y esbelto (relación H/P = ${heightToDepthRatio.toStringAsFixed(1)}). Es OBLIGATORIO instalar herrajes de anclaje a la pared para evitar accidentes con niños o sismos.';
+      recommendation =
+          '⚠️ RIESGO CRÍTICO DE VUELCO: Mueble alto y esbelto (relación H/P = ${heightToDepthRatio.toStringAsFixed(1)}). Es OBLIGATORIO instalar herrajes de anclaje a la pared para evitar accidentes con niños o sismos.';
     } else if (isTall && heightToDepthRatio >= 2.0) {
       tipRisk = false;
       wallAnchor = true;
@@ -170,7 +183,10 @@ class StabilityLogisticsCalculator {
   }
 
   /// Calcula el Packing List empaquetando piezas en cajas planas (máx 25-30 kg por caja).
-  LogisticsReport calculatePacking(Furniture furniture, MaterialCatalog catalog) {
+  LogisticsReport calculatePacking(
+    Furniture furniture,
+    MaterialCatalog catalog,
+  ) {
     final parts = List<Part>.from(furniture.parts);
     if (parts.isEmpty) {
       return const LogisticsReport(
@@ -187,17 +203,22 @@ class StabilityLogisticsCalculator {
     final packages = <PackageBox>[];
     List<Part> currentBoxParts = [];
     double currentBoxWeight = 0;
-    const maxWeightPerBoxKg = 28.0; // Límite ergonómico para manipulación manual
+    const maxWeightPerBoxKg =
+        28.0; // Límite ergonómico para manipulación manual
 
     int boxIndex = 1;
 
     for (final part in parts) {
       final material = catalog.byId(part.materialId);
-      final density = getMaterialDensity(material?.category ?? MaterialCategory.particleboard);
-      final volM3 = (part.size.width * part.size.height * part.size.depth) / 1e9;
+      final density = getMaterialDensity(
+        material?.category ?? MaterialCategory.particleboard,
+      );
+      final volM3 =
+          (part.size.width * part.size.height * part.size.depth) / 1e9;
       final partMass = volM3 * density;
 
-      if (currentBoxParts.isNotEmpty && (currentBoxWeight + partMass > maxWeightPerBoxKg)) {
+      if (currentBoxParts.isNotEmpty &&
+          (currentBoxWeight + partMass > maxWeightPerBoxKg)) {
         packages.add(_createBox(boxIndex++, currentBoxParts, currentBoxWeight));
         currentBoxParts = [];
         currentBoxWeight = 0;
@@ -247,7 +268,8 @@ class StabilityLogisticsCalculator {
       lengthMm: boxL.roundToDouble(),
       widthMm: boxW.roundToDouble(),
       heightMm: boxH.roundToDouble(),
-      weightKg: (weight + 1.2).roundToDouble(), // +1.2 kg de cartón y esquineros
+      weightKg: (weight + 1.2)
+          .roundToDouble(), // +1.2 kg de cartón y esquineros
       partNames: parts.map((p) => p.name).toList(),
     );
   }

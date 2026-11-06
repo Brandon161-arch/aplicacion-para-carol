@@ -1,6 +1,3 @@
-import 'dart:math' as math;
-
-import '../entities/drilling_hole.dart';
 import '../entities/furniture.dart';
 import '../entities/part.dart';
 import 'drilling_map_calculator.dart';
@@ -18,11 +15,15 @@ class IndustrialExporter {
     final sb = StringBuffer();
     // Cabecera DXF mínima
     sb.writeln('0\nSECTION\n2\nHEADER\n9\n\$ACADVER\n1\nAC1009\n0\nENDSEC');
-    
+
     // Tablas y capas
     sb.writeln('0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n2');
-    sb.writeln('0\nLAYER\n2\nOUTLINE\n70\n0\n62\n7\n6\nCONTINUOUS'); // Capa contorno
-    sb.writeln('0\nLAYER\n2\nDRILL\n70\n0\n62\n1\n6\nCONTINUOUS');   // Capa taladros
+    sb.writeln(
+      '0\nLAYER\n2\nOUTLINE\n70\n0\n62\n7\n6\nCONTINUOUS',
+    ); // Capa contorno
+    sb.writeln(
+      '0\nLAYER\n2\nDRILL\n70\n0\n62\n1\n6\nCONTINUOUS',
+    ); // Capa taladros
     sb.writeln('0\nENDTAB\n0\nENDSEC');
 
     // Entidades
@@ -39,7 +40,13 @@ class IndustrialExporter {
       _writeDxfPolylineRect(sb, currentXOffset, 0, width, length, 'OUTLINE');
 
       // Dibujar texto identificador
-      _writeDxfText(sb, currentXOffset + 10, -25, 18, '${part.name} [${part.cutSize.thickness.round()}mm]');
+      _writeDxfText(
+        sb,
+        currentXOffset + 10,
+        -25,
+        18,
+        '${part.name} [${part.cutSize.thickness.round()}mm]',
+      );
 
       // Dibujar perforaciones
       final pattern = patterns[part.id];
@@ -59,7 +66,14 @@ class IndustrialExporter {
     return sb.toString();
   }
 
-  void _writeDxfPolylineRect(StringBuffer sb, double x, double y, double w, double h, String layer) {
+  void _writeDxfPolylineRect(
+    StringBuffer sb,
+    double x,
+    double y,
+    double w,
+    double h,
+    String layer,
+  ) {
     final pts = [
       [x, y],
       [x + w, y],
@@ -74,16 +88,34 @@ class IndustrialExporter {
     sb.writeln('0\nSEQEND');
   }
 
-  void _writeDxfCircle(StringBuffer sb, double cx, double cy, double r, String layer) {
+  void _writeDxfCircle(
+    StringBuffer sb,
+    double cx,
+    double cy,
+    double r,
+    String layer,
+  ) {
     sb.writeln('0\nCIRCLE\n8\n$layer\n10\n$cx\n20\n$cy\n30\n0.0\n40\n$r');
   }
 
-  void _writeDxfText(StringBuffer sb, double x, double y, double h, String text) {
-    sb.writeln('0\nTEXT\n8\nOUTLINE\n10\n$x\n20\n$y\n30\n0.0\n40\n$h\n1\n$text');
+  void _writeDxfText(
+    StringBuffer sb,
+    double x,
+    double y,
+    double h,
+    String text,
+  ) {
+    sb.writeln(
+      '0\nTEXT\n8\nOUTLINE\n10\n$x\n20\n$y\n30\n0.0\n40\n$h\n1\n$text',
+    );
   }
 
   /// Exporta el mecanizado perimetral y taladros a G-Code estándar (ISO).
-  String exportToGCode(Furniture furniture, {double feedRate = 3000, double spindleRpm = 18000}) {
+  String exportToGCode(
+    Furniture furniture, {
+    double feedRate = 3000,
+    double spindleRpm = 18000,
+  }) {
     final drillingCalc = const DrillingMapCalculator();
     final patterns = drillingCalc.calculatePatterns(furniture);
 
@@ -100,7 +132,9 @@ class IndustrialExporter {
 
     int index = 1;
     for (final part in furniture.parts) {
-      sb.writeln('; --- Pieza $index: ${part.name} (${part.cutSize.length}x${part.cutSize.width}x${part.cutSize.thickness} mm) ---');
+      sb.writeln(
+        '; --- Pieza $index: ${part.name} (${part.cutSize.length}x${part.cutSize.width}x${part.cutSize.thickness} mm) ---',
+      );
       final w = part.cutSize.width;
       final l = part.cutSize.length;
       final depth = -(part.cutSize.thickness + 0.5); // traspaso 0.5 mm
@@ -144,15 +178,27 @@ class IndustrialExporter {
   /// Exporta CSV estándar de corte y canteado listo para software de seccionadoras (ej. CorteX, Opticut, Leitz).
   String exportToCutListCsv(Furniture furniture) {
     final sb = StringBuffer();
-    sb.writeln('ID,Pieza,Cantidad,Largo(mm),Ancho(mm),Espesor(mm),Material,Veta,Canto_Largo1,Canto_Largo2,Canto_Ancho1,Canto_Ancho2');
+    sb.writeln(
+      'ID,Pieza,Cantidad,Largo(mm),Ancho(mm),Espesor(mm),Material,Veta,Canto_Largo1,Canto_Largo2,Canto_Ancho1,Canto_Ancho2',
+    );
 
     for (final part in furniture.parts) {
-      final edgeL1 = part.edgeBanding[PanelEdge.longEdge1] != null ? 'SI' : 'NO';
-      final edgeL2 = part.edgeBanding[PanelEdge.longEdge2] != null ? 'SI' : 'NO';
-      final edgeS1 = part.edgeBanding[PanelEdge.shortEdge1] != null ? 'SI' : 'NO';
-      final edgeS2 = part.edgeBanding[PanelEdge.shortEdge2] != null ? 'SI' : 'NO';
+      final edgeL1 = part.edgeBanding[PanelEdge.longEdge1] != null
+          ? 'SI'
+          : 'NO';
+      final edgeL2 = part.edgeBanding[PanelEdge.longEdge2] != null
+          ? 'SI'
+          : 'NO';
+      final edgeS1 = part.edgeBanding[PanelEdge.shortEdge1] != null
+          ? 'SI'
+          : 'NO';
+      final edgeS2 = part.edgeBanding[PanelEdge.shortEdge2] != null
+          ? 'SI'
+          : 'NO';
 
-      sb.writeln('${part.id},"${part.name}",1,${part.cutSize.length},${part.cutSize.width},${part.cutSize.thickness},"${part.materialId}",${part.grain.name},$edgeL1,$edgeL2,$edgeS1,$edgeS2');
+      sb.writeln(
+        '${part.id},"${part.name}",1,${part.cutSize.length},${part.cutSize.width},${part.cutSize.thickness},"${part.materialId}",${part.grain.name},$edgeL1,$edgeL2,$edgeS1,$edgeS2',
+      );
     }
 
     return sb.toString();

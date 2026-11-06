@@ -40,11 +40,15 @@ class SecurityLogisticsPanel extends ConsumerWidget {
                   children: [
                     Text(
                       'Seguridad & Logística RTA',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       'Centro de gravedad, antivuelco y empaque plano',
-                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -77,7 +81,8 @@ class SecurityLogisticsPanel extends ConsumerWidget {
                 child: _statBox(
                   theme,
                   label: 'Cajas de Empaque',
-                  value: '${logistics.totalBoxCount} caja${logistics.totalBoxCount > 1 ? 's' : ''}',
+                  value:
+                      '${logistics.totalBoxCount} caja${logistics.totalBoxCount > 1 ? 's' : ''}',
                   icon: Icons.inventory_2_outlined,
                 ),
               ),
@@ -97,7 +102,9 @@ class SecurityLogisticsPanel extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  stability.isTipOverRisk ? Icons.warning_rounded : Icons.verified_user_outlined,
+                  stability.isTipOverRisk
+                      ? Icons.warning_rounded
+                      : Icons.verified_user_outlined,
                   color: badgeColor,
                   size: 24,
                 ),
@@ -110,8 +117,8 @@ class SecurityLogisticsPanel extends ConsumerWidget {
                         stability.isTipOverRisk
                             ? 'ALERTA DE SEGURIDAD ANTIVUELCO'
                             : (stability.wallAnchorRequired
-                                ? 'Precaución de anclaje recomendada'
-                                : 'Estabilidad comprobada (Segura)'),
+                                  ? 'Precaución de anclaje recomendada'
+                                  : 'Estabilidad comprobada (Segura)'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12.5,
@@ -162,11 +169,17 @@ class SecurityLogisticsPanel extends ConsumerWidget {
                       children: [
                         Text(
                           'Caja #${box.boxNumber}: ${box.lengthMm.round()} × ${box.widthMm.round()} × ${box.heightMm.round()} mm',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
                         ),
                         Text(
                           '${box.partNames.length} piezas · ${(box.volumeM3 * 1000).toStringAsFixed(1)} L vol.',
-                          style: TextStyle(fontSize: 11, color: theme.textTheme.bodySmall?.color),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.textTheme.bodySmall?.color,
+                          ),
                         ),
                       ],
                     ),
@@ -197,7 +210,9 @@ class SecurityLogisticsPanel extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -211,7 +226,10 @@ class SecurityLogisticsPanel extends ConsumerWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: theme.textTheme.bodySmall?.color),
+            style: TextStyle(
+              fontSize: 10,
+              color: theme.textTheme.bodySmall?.color,
+            ),
           ),
         ],
       ),

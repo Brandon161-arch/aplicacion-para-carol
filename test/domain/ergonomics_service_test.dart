@@ -19,11 +19,16 @@ void main() {
         parts: const [],
       );
 
-      const profile = AntropometricProfile(userHeightCm: 170); // codo a 1071mm, ideal ~950mm
+      const profile = AntropometricProfile(
+        userHeightCm: 170,
+      ); // codo a 1071mm, ideal ~950mm
       final report = service.evaluate(furniture, profile);
 
       expect(report.alerts, isNotEmpty);
-      expect(report.alerts.any((a) => a.dimensionName.contains('Altura')), isTrue);
+      expect(
+        report.alerts.any((a) => a.dimensionName.contains('Altura')),
+        isTrue,
+      );
     });
 
     test('Alerta sobre mesa demasiado alta para percentiles estándar', () {
@@ -31,7 +36,11 @@ void main() {
         id: 'test_table',
         name: 'Mesa Alta',
         type: FurnitureType.table,
-        overallSize: const Size3(width: 1400, height: 860, depth: 800), // 860 mm es muy alta para comer
+        overallSize: const Size3(
+          width: 1400,
+          height: 860,
+          depth: 800,
+        ), // 860 mm es muy alta para comer
         settings: const ConstructionSettings(),
         parts: const [],
       );
@@ -40,7 +49,12 @@ void main() {
       final report = service.evaluate(furniture, profile);
 
       expect(report.overallStatus, equals(ErgonomicStatus.hazard));
-      expect(report.alerts.any((a) => a.explanation.contains('antebrazos y hombros')), isTrue);
+      expect(
+        report.alerts.any(
+          (a) => a.explanation.contains('antebrazos y hombros'),
+        ),
+        isTrue,
+      );
     });
   });
 }

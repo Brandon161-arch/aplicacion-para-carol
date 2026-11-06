@@ -200,7 +200,13 @@ class SceneProjector {
         final v1 = facePoints[1];
         final v2 = facePoints[2];
         final dynamicNormal = (v1 - v0).cross(v2 - v0).normalized;
-        final effectiveNormal = dynamicNormal.length > 0.1 ? dynamicNormal : face.normal;
+        var effectiveNormal = dynamicNormal.length > 0.1
+            ? dynamicNormal
+            : face.normal;
+        // Mantén el sentido hacia afuera de la definición de la cara.
+        if (effectiveNormal.dot(face.normal) < 0) {
+          effectiveNormal = effectiveNormal * -1;
+        }
 
         if (effectiveNormal.dot(toEye) <= 0) continue;
 
@@ -232,7 +238,8 @@ class SceneProjector {
         final depth = _averageDepth(facePoints, basis);
         final brightness =
             0.42 +
-            0.58 * math.max(0.0, effectiveNormal.dot(_lightDirection.normalized));
+            0.58 *
+                math.max(0.0, effectiveNormal.dot(_lightDirection.normalized));
 
         faces.add(
           ProjectedFace(

@@ -62,22 +62,26 @@ class ScenePart {
     // Aplicar traslación (para cajones que se abren)
     if (translation != null) {
       rawCorners = rawCorners
-          .map((v) => Vector3(
-                v.x + translation.x,
-                v.y + translation.y,
-                v.z + translation.z,
-              ))
+          .map(
+            (v) => Vector3(
+              v.x + translation.x,
+              v.y + translation.y,
+              v.z + translation.z,
+            ),
+          )
           .toList();
     }
 
     // Aplicar explosionado
     if (explodeOffset != null) {
       rawCorners = rawCorners
-          .map((v) => Vector3(
-                v.x + explodeOffset.x,
-                v.y + explodeOffset.y,
-                v.z + explodeOffset.z,
-              ))
+          .map(
+            (v) => Vector3(
+              v.x + explodeOffset.x,
+              v.y + explodeOffset.y,
+              v.z + explodeOffset.z,
+            ),
+          )
           .toList();
     }
 
@@ -89,11 +93,7 @@ class ScenePart {
     }
     final center = Vector3(cx / 8, cy / 8, cz / 8);
 
-    return ScenePart(
-      part: part,
-      corners: rawCorners,
-      center: center,
-    );
+    return ScenePart(part: part, corners: rawCorners, center: center);
   }
 }
 
@@ -179,13 +179,15 @@ class SceneBuilder {
         explodeOffset = Vector3(dir.x * factor, dir.y * factor, dir.z * factor);
       }
 
-      result.add(ScenePart.fromPart(
-        part,
-        translation: translation,
-        rotationAngleRad: rotationAngle,
-        rotationPivot: rotationPivot,
-        explodeOffset: explodeOffset,
-      ));
+      result.add(
+        ScenePart.fromPart(
+          part,
+          translation: translation,
+          rotationAngleRad: rotationAngle,
+          rotationPivot: rotationPivot,
+          explodeOffset: explodeOffset,
+        ),
+      );
     }
 
     return result;

@@ -19,12 +19,14 @@ class CustomModelDraft {
   final Size3 overallSize;
   final ConstructionSettings settings;
   final List<Part> parts;
+  final String defaultMaterialId;
 
   const CustomModelDraft({
     required this.name,
     required this.overallSize,
     required this.settings,
     required this.parts,
+    this.defaultMaterialId = 'mdf_18',
   });
 
   CustomModelDraft copyWith({
@@ -32,11 +34,13 @@ class CustomModelDraft {
     Size3? overallSize,
     ConstructionSettings? settings,
     List<Part>? parts,
+    String? defaultMaterialId,
   }) => CustomModelDraft(
     name: name ?? this.name,
     overallSize: overallSize ?? this.overallSize,
     settings: settings ?? this.settings,
     parts: parts ?? this.parts,
+    defaultMaterialId: defaultMaterialId ?? this.defaultMaterialId,
   );
 }
 
@@ -82,12 +86,51 @@ class CustomModelController extends Notifier<CustomModelDraft> {
     );
   }
 
+  void updateDefaultMaterial(String materialId) {
+    state = state.copyWith(defaultMaterialId: materialId);
+  }
+
+  void applyMaterialToPart(
+    String partId,
+    String materialId,
+    double thicknessMm,
+  ) {
+    state = state.copyWith(
+      parts: [
+        for (final part in state.parts)
+          if (part.id == partId)
+            part.copyWith(
+              materialId: materialId,
+              cutSize: part.cutSize.copyWith(thickness: thicknessMm),
+            )
+          else
+            part,
+      ],
+    );
+  }
+
+  void applyMaterialToAll(String materialId, double thicknessMm) {
+    state = state.copyWith(
+      defaultMaterialId: materialId,
+      parts: [
+        for (final part in state.parts)
+          part.copyWith(
+            materialId: materialId,
+            cutSize: part.cutSize.copyWith(thickness: thicknessMm),
+          ),
+      ],
+    );
+  }
+
   void loadFurniture(Furniture furniture, {String? name}) {
     state = CustomModelDraft(
       name: name ?? furniture.name,
       overallSize: furniture.overallSize,
       settings: furniture.settings,
       parts: List<Part>.unmodifiable(furniture.parts),
+      defaultMaterialId: furniture.parts.isNotEmpty
+          ? furniture.parts.first.materialId
+          : state.defaultMaterialId,
     );
   }
 
@@ -98,6 +141,17 @@ class CustomModelController extends Notifier<CustomModelDraft> {
         ...state.parts,
         part.copyWith(id: id),
       ],
+    );
+  }
+
+  void addParts(List<Part> parts) {
+    if (parts.isEmpty) return;
+    state = state.copyWith(
+      parts: [
+        ...state.parts,
+        for (final part in parts) part.copyWith(id: _newPartId()),
+      ],
+      defaultMaterialId: parts.first.materialId,
     );
   }
 

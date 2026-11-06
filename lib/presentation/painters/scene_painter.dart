@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/furniture.dart';
+import '../../domain/entities/part.dart';
+import '../../domain/services/hardware_marker_builder.dart';
 import '../../domain/services/rendering/orbit_camera.dart';
 import '../../domain/services/rendering/scene_projector.dart';
 import '../../domain/value_objects/vector3.dart';
@@ -15,6 +17,8 @@ class ScenePainter extends CustomPainter {
   final double explodeFactor;
   final double doorOpenProgress;
   final double drawerOpenProgress;
+  final bool showHardware;
+  final Part? previewPart;
 
   const ScenePainter({
     required this.furniture,
@@ -24,6 +28,8 @@ class ScenePainter extends CustomPainter {
     this.explodeFactor = 0.0,
     this.doorOpenProgress = 0.0,
     this.drawerOpenProgress = 0.0,
+    this.showHardware = false,
+    this.previewPart,
   });
 
   @override
@@ -69,7 +75,10 @@ class ScenePainter extends CustomPainter {
       }
       path.close();
 
-      fillPaint.color = _shade(partColor(face.kind), face.shade);
+      fillPaint.color = _shade(
+        materialColorFor(face.materialId, face.kind),
+        face.shade,
+      );
       canvas.drawPath(path, fillPaint);
       canvas.drawPath(
         path,
@@ -77,6 +86,136 @@ class ScenePainter extends CustomPainter {
       );
     }
     if (showBounds) _drawOverallBounds(canvas, size);
+    if (previewPart != null) _drawPreview(canvas, size, previewPart!);
+    if (showHardware) _drawHardwareMarkers(canvas, size);
+  }
+
+  void _drawPreview(Canvas canvas, Size size, Part part) {
+    final previewFurniture = Furniture(
+      id: 'preview',
+      name: 'preview',
+      type: furniture.type,
+      overallSize: furniture.overallSize,
+      settings: furniture.settings,
+      parts: [part],
+    );
+    final projection = const SceneProjector().project(
+      furniture: previewFurniture,
+      camera: camera,
+      viewportWidth: size.width,
+      viewportHeight: size.height,
+    );
+    final fill = Paint()
+      ..color = const Color(0x55FFB74D)
+      ..style = PaintingStyle.fill;
+    final stroke = Paint()
+      ..color = const Color(0xFFFFB74D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    for (final face in projection.faces) {
+      if (face.points.length < 3) continue;
+      final path = Path()..moveTo(face.points.first.x, face.points.first.y);
+      for (final point in face.points.skip(1)) {
+        path.lineTo(point.x, point.y);
+      }
+      path.close();
+      canvas.drawPath(path, fill);
+      canvas.drawPath(path, stroke);
+    }
+  }
+
+  void _drawHardwareMarkers(Canvas canvas, Size size) {
+    final markers = const HardwareMarkerBuilder().build(furniture);
+    if (markers.isEmpty) return;
+    const projector = SceneProjector();
+    final halo = Paint()
+      ..color = const Color(0xCCFFFFFF)
+      ..style = PaintingStyle.fill;
+    final outline = Paint()
+      ..color = const Color(0xFF1B1B1B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final hingeFill = Paint()..color = const Color(0xFFE0A526);
+    final screwFill = Paint()..color = const Color(0xFF37474F);
+    final slideFill = Paint()..color = const Color(0xFF2E7D9A);
+    final handleFill = Paint()..color = const Color(0xFF8D6E63);
+
+    for (final marker in markers) {
+      final point = projector.projectPoint(
+        point: marker.position,
+        camera: camera,
+        viewportWidth: size.width,
+        viewportHeight: size.height,
+      );
+      if (point == null) continue;
+      final center = Offset(point.x, point.y);
+      switch (marker.kind) {
+        case HardwareMarkerKind.hinge:
+          final rect = Rect.fromCenter(center: center, width: 16, height: 11);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect.inflate(2), const Radius.circular(5)),
+            halo,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+            hingeFill,
+          );
+          canvas.drawCircle(center, 2.3, screwFill);
+          canvas.drawCircle(
+            center.translate(6, 0),
+            1.8,
+            Paint()..color = const Color(0xFF5D4037),
+          );
+          break;
+        case HardwareMarkerKind.screw:
+          canvas.drawCircle(center, 5.2, halo);
+          canvas.drawCircle(center, 4, screwFill);
+          canvas.drawCircle(center, 4, outline);
+          canvas.drawLine(
+            center.translate(-2.2, 0),
+            center.translate(2.2, 0),
+            Paint()
+              ..color = const Color(0xFFFFF3E0)
+              ..strokeWidth = 1.2,
+          );
+          canvas.drawLine(
+            center.translate(0, -2.2),
+            center.translate(0, 2.2),
+            Paint()
+              ..color = const Color(0xFFFFF3E0)
+              ..strokeWidth = 1.2,
+          );
+          break;
+        case HardwareMarkerKind.drawerSlide:
+          final rect = Rect.fromCenter(center: center, width: 18, height: 7);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              rect.inflate(1.5),
+              const Radius.circular(4),
+            ),
+            halo,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+            slideFill,
+          );
+          break;
+        case HardwareMarkerKind.handle:
+          final rect = Rect.fromCenter(center: center, width: 20, height: 5);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              rect.inflate(1.5),
+              const Radius.circular(4),
+            ),
+            halo,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+            handleFill,
+          );
+          break;
+      }
+    }
   }
 
   void _drawOverallBounds(Canvas canvas, Size size) {
@@ -194,5 +333,10 @@ class ScenePainter extends CustomPainter {
       oldDelegate.camera != camera ||
       oldDelegate.selectedPartId != selectedPartId ||
       oldDelegate.showBounds != showBounds ||
+      oldDelegate.showHardware != showHardware ||
+      oldDelegate.previewPart != previewPart ||
+      oldDelegate.explodeFactor != explodeFactor ||
+      oldDelegate.doorOpenProgress != doorOpenProgress ||
+      oldDelegate.drawerOpenProgress != drawerOpenProgress ||
       !identical(oldDelegate.furniture, furniture);
 }

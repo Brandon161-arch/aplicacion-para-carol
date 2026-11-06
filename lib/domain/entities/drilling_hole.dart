@@ -1,16 +1,16 @@
 /// Tipo y propósito de perforación para carpintería.
 enum HoleType {
-  hingeCup35,      // Cazoleta de bisagra Ø35mm (profundidad 11.5mm)
+  hingeCup35, // Cazoleta de bisagra Ø35mm (profundidad 11.5mm)
   hingePlateMount, // Orificios fijación placa bisagra en lateral (Ø5mm sistema 32)
-  drawerSlideMount,// Orificios corredera telescópica en lateral (Ø5mm sistema 32)
-  confirmatThrough,// Pasante para Confirmat en cara (Ø7mm)
-  confirmatEdge,   // En canto para Confirmat (Ø5mm x 50mm)
-  minifixCam15,    // Caja de leva Minifix Ø15mm (a 34mm del canto)
+  drawerSlideMount, // Orificios corredera telescópica en lateral (Ø5mm sistema 32)
+  confirmatThrough, // Pasante para Confirmat en cara (Ø7mm)
+  confirmatEdge, // En canto para Confirmat (Ø5mm x 50mm)
+  minifixCam15, // Caja de leva Minifix Ø15mm (a 34mm del canto)
   minifixBoltEdge, // En canto para perno Minifix Ø8mm
   minifixBoltFace, // En cara para anclar espiga Minifix Ø5mm
-  dowel8,          // Tarugo / espiga de madera Ø8mm x 30mm
-  shelfPin5,       // Pines o soporte de estantes móviles Ø5mm
-  handleScrew,     // Perforación para tornillo de manija / tirador Ø4.5mm
+  dowel8, // Tarugo / espiga de madera Ø8mm x 30mm
+  shelfPin5, // Pines o soporte de estantes móviles Ø5mm
+  handleScrew, // Perforación para tornillo de manija / tirador Ø4.5mm
 }
 
 /// Una perforación específica con sus coordenadas X/Y en la cara o canto de la pieza.
@@ -20,7 +20,8 @@ class DrillingHole {
   final double yMm;
   final double diameterMm;
   final double depthMm;
-  final String face; // 'front', 'back', 'top_edge', 'bottom_edge', 'left_edge', 'right_edge'
+  final String
+  face; // 'front', 'back', 'top_edge', 'bottom_edge', 'left_edge', 'right_edge'
   final String description;
 
   const DrillingHole({

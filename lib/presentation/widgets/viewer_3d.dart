@@ -34,9 +34,11 @@ class Viewer3D extends StatefulWidget {
   State<Viewer3D> createState() => _Viewer3DState();
 }
 
-class _Viewer3DState extends State<Viewer3D> {
+class _Viewer3DState extends State<Viewer3D>
+    with SingleTickerProviderStateMixin {
   static const double _defaultYaw = 0.62;
   static const double _defaultPitch = 0.34;
+  static const double _snapMm = 10;
 
   late double _yaw;
   late double _pitch;
@@ -47,6 +49,7 @@ class _Viewer3DState extends State<Viewer3D> {
   Offset _startFocal = Offset.zero;
 
   Part? _draggingPart;
+  Part? _previewPart;
   Vector3? _dragStartPosition;
   Vector3? _dragStartPlanePoint;
   double? _dragPlaneY;
@@ -54,6 +57,16 @@ class _Viewer3DState extends State<Viewer3D> {
   double _drawersProgress = 0.0;
   double _explodeProgress = 0.0;
   bool _controlsExpanded = false;
+  bool _showHardware = true;
+  bool _snapEnabled = true;
+
+  late final AnimationController _motionController;
+  double _doorsStart = 0;
+  double _drawersStart = 0;
+  double _explodeStart = 0;
+  double _doorsTarget = 0;
+  double _drawersTarget = 0;
+  double _explodeTarget = 0;
 
   void _setOrthogonalView(String view) {
     setState(() {
@@ -85,6 +98,45 @@ class _Viewer3DState extends State<Viewer3D> {
     _yaw = _defaultYaw;
     _pitch = _defaultPitch;
     _distance = _fitDistance;
+    _motionController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 750),
+        )..addListener(() {
+          final t = Curves.easeInOutCubic.transform(_motionController.value);
+          setState(() {
+            _doorsProgress = _doorsStart + (_doorsTarget - _doorsStart) * t;
+            _drawersProgress =
+                _drawersStart + (_drawersTarget - _drawersStart) * t;
+            _explodeProgress =
+                _explodeStart + (_explodeTarget - _explodeStart) * t;
+          });
+        });
+  }
+
+  @override
+  void dispose() {
+    _motionController.dispose();
+    super.dispose();
+  }
+
+  void _animateTo({double? doors, double? drawers, double? explode}) {
+    _doorsStart = _doorsProgress;
+    _drawersStart = _drawersProgress;
+    _explodeStart = _explodeProgress;
+    _doorsTarget = doors ?? _doorsProgress;
+    _drawersTarget = drawers ?? _drawersProgress;
+    _explodeTarget = explode ?? _explodeProgress;
+    _motionController.forward(from: 0);
+  }
+
+  void _setProgress({double? doors, double? drawers, double? explode}) {
+    _motionController.stop();
+    setState(() {
+      if (doors != null) _doorsProgress = doors;
+      if (drawers != null) _drawersProgress = drawers;
+      if (explode != null) _explodeProgress = explode;
+    });
   }
 
   double get _fitDistance =>
@@ -195,16 +247,22 @@ class _Viewer3DState extends State<Viewer3D> {
         0.0,
         widget.furniture.overallSize.depth - draggingPart.size.depth,
       );
-      final x = (startPosition.x + (current.x - startPlanePoint.x))
+      var x = (startPosition.x + (current.x - startPlanePoint.x))
           .clamp(0.0, maxX)
           .toDouble();
-      final z = (startPosition.z + (current.z - startPlanePoint.z))
+      var z = (startPosition.z + (current.z - startPlanePoint.z))
           .clamp(0.0, maxZ)
           .toDouble();
-
-      widget.onPartMoved!(
-        draggingPart.copyWith(position: Vector3(x, startPosition.y, z)),
+      if (_snapEnabled) {
+        x = _snapCoordinate(x, axisX: true, part: draggingPart, max: maxX);
+        z = _snapCoordinate(z, axisX: false, part: draggingPart, max: maxZ);
+      }
+      final candidate = draggingPart.copyWith(
+        position: Vector3(x, startPosition.y, z),
       );
+      if (_collides(candidate)) return;
+      setState(() => _previewPart = candidate);
+      widget.onPartMoved!(candidate);
       return;
     }
 
@@ -229,7 +287,75 @@ class _Viewer3DState extends State<Viewer3D> {
     _draggingPart = null;
     _dragStartPlanePoint = null;
     _dragPlaneY = null;
+    if (_previewPart != null) setState(() => _previewPart = null);
   }
+
+  double _snapCoordinate(
+    double value, {
+    required bool axisX,
+    required Part part,
+    required double max,
+  }) {
+    var snapped = (value / _snapMm).round() * _snapMm;
+    const tolerance = 9.0;
+    final size = axisX ? part.size.width : part.size.depth;
+    double? best;
+    var bestDistance = tolerance;
+    for (final other in widget.furniture.parts) {
+      if (other.id == part.id) continue;
+      final start = axisX ? other.position.x : other.position.z;
+      final extent = axisX ? other.size.width : other.size.depth;
+      final candidates = [
+        start,
+        start + extent,
+        start - size,
+        start + extent - size,
+      ];
+      for (final candidate in candidates) {
+        final distance = (candidate - value).abs();
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = candidate;
+        }
+      }
+    }
+    snapped = best ?? snapped;
+    return snapped.clamp(0.0, max).toDouble();
+  }
+
+  bool _collides(Part candidate) {
+    const tolerance = 0.6;
+    for (final other in widget.furniture.parts) {
+      if (other.id == candidate.id) continue;
+      final overlapX = _overlap(
+        candidate.position.x,
+        candidate.position.x + candidate.size.width,
+        other.position.x,
+        other.position.x + other.size.width,
+      );
+      final overlapY = _overlap(
+        candidate.position.y,
+        candidate.position.y + candidate.size.height,
+        other.position.y,
+        other.position.y + other.size.height,
+      );
+      final overlapZ = _overlap(
+        candidate.position.z,
+        candidate.position.z + candidate.size.depth,
+        other.position.z,
+        other.position.z + other.size.depth,
+      );
+      if (overlapX > tolerance &&
+          overlapY > tolerance &&
+          overlapZ > tolerance) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  double _overlap(double startA, double endA, double startB, double endB) =>
+      (endA < endB ? endA : endB) - (startA > startB ? startA : startB);
 
   OrbitCamera get _camera {
     final size = widget.furniture.overallSize;
@@ -275,6 +401,12 @@ class _Viewer3DState extends State<Viewer3D> {
                       explodeFactor: _explodeProgress,
                       doorOpenProgress: _doorsProgress,
                       drawerOpenProgress: _drawersProgress,
+                      showHardware:
+                          _showHardware &&
+                          _doorsProgress.abs() < 0.001 &&
+                          _drawersProgress.abs() < 0.001 &&
+                          _explodeProgress.abs() < 0.001,
+                      previewPart: _previewPart,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -289,7 +421,9 @@ class _Viewer3DState extends State<Viewer3D> {
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
@@ -308,12 +442,14 @@ class _Viewer3DState extends State<Viewer3D> {
               top: 50,
               left: 10,
               child: Container(
-                width: 220,
+                width: 236,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,40 +458,127 @@ class _Viewer3DState extends State<Viewer3D> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Simulación & Apertura',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            'Simulación & Apertura',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         InkWell(
-                          onTap: () => setState(() => _controlsExpanded = !_controlsExpanded),
+                          onTap: () => setState(
+                            () => _controlsExpanded = !_controlsExpanded,
+                          ),
                           child: Icon(
-                            _controlsExpanded ? Icons.expand_less : Icons.expand_more,
+                            _controlsExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
                             size: 16,
                             color: Colors.white70,
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _motionButton(
+                          icon: Icons.door_front_door_outlined,
+                          tooltip: 'Abrir/cerrar puertas',
+                          onPressed: () =>
+                              _animateTo(doors: _doorsProgress > 0.5 ? 0 : 1),
+                        ),
+                        _motionButton(
+                          icon: Icons.view_agenda_outlined,
+                          tooltip: 'Abrir/cerrar cajones',
+                          onPressed: () => _animateTo(
+                            drawers: _drawersProgress > 0.5 ? 0 : 1,
+                          ),
+                        ),
+                        _motionButton(
+                          icon: Icons.all_out,
+                          tooltip: 'Explosionar/armar',
+                          onPressed: () => _animateTo(
+                            explode: _explodeProgress > 0.5 ? 0 : 1,
+                          ),
+                        ),
+                        _motionButton(
+                          icon: Icons.restart_alt,
+                          tooltip: 'Cerrar todo',
+                          onPressed: () =>
+                              _animateTo(doors: 0, drawers: 0, explode: 0),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 3,
+                      children: [
+                        _toggleChip(
+                          label: 'Herrajes',
+                          selected: _showHardware,
+                          onSelected: (value) =>
+                              setState(() => _showHardware = value),
+                        ),
+                        _toggleChip(
+                          label: 'Encajar',
+                          selected: _snapEnabled,
+                          onSelected: (value) =>
+                              setState(() => _snapEnabled = value),
+                        ),
+                      ],
+                    ),
+                    if (_showHardware) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        children: const [
+                          _MarkerLegend(
+                            color: Color(0xFFE0A526),
+                            label: 'Bisagra',
+                          ),
+                          _MarkerLegend(
+                            color: Color(0xFF37474F),
+                            label: 'Tornillo',
+                          ),
+                          _MarkerLegend(
+                            color: Color(0xFF2E7D9A),
+                            label: 'Corredera',
+                          ),
+                        ],
+                      ),
+                      if (_doorsProgress.abs() > 0.001 ||
+                          _drawersProgress.abs() > 0.001)
+                        Text(
+                          'Los herrajes se ocultan durante la apertura.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 9,
+                          ),
+                        ),
+                    ],
                     if (_controlsExpanded) ...[
                       const SizedBox(height: 6),
                       _sliderRow(
                         label: 'Puertas',
                         value: _doorsProgress,
-                        onChanged: (v) => setState(() => _doorsProgress = v),
+                        onChanged: (v) => _setProgress(doors: v),
                       ),
                       _sliderRow(
                         label: 'Cajones',
                         value: _drawersProgress,
-                        onChanged: (v) => setState(() => _drawersProgress = v),
+                        onChanged: (v) => _setProgress(drawers: v),
                       ),
                       _sliderRow(
                         label: 'Explosión',
                         value: _explodeProgress,
-                        onChanged: (v) => setState(() => _explodeProgress = v),
+                        onChanged: (v) => _setProgress(explode: v),
                       ),
                     ],
                   ],
@@ -409,6 +632,52 @@ class _Viewer3DState extends State<Viewer3D> {
           ],
         );
       },
+    );
+  }
+
+  Widget _motionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.all(5),
+          child: Icon(
+            icon,
+            size: 17,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return FilterChip(
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      selected: selected,
+      onSelected: onSelected,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+      showCheckmark: false,
+      selectedColor: const Color(0xFFFFB74D),
+      backgroundColor: Colors.white.withValues(alpha: 0.12),
+      labelStyle: TextStyle(
+        color: selected ? Colors.black87 : Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
     );
   }
 
@@ -472,6 +741,35 @@ class _Viewer3DState extends State<Viewer3D> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MarkerLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _MarkerLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 9,
+          ),
+        ),
+      ],
     );
   }
 }
