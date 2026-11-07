@@ -25,7 +25,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'mueblecad.tour.seen.v1': true});
   });
 
   Widget testApp() => ProviderScope(
@@ -376,6 +376,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Explorar muebles'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('abre la guía rápida desde el botón de ayuda', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Abrir guía rápida'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guía rápida de Mueble Maestro'), findsOneWidget);
+    expect(find.text('1 de 5'), findsOneWidget);
+
+    await tester.tap(find.text('Saltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guía rápida de Mueble Maestro'), findsNothing);
+  });
+
+  testWidgets('muestra la guía la primera vez que se abre la app', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await pumpApp(tester);
+
+    expect(find.text('Guía rápida de Mueble Maestro'), findsOneWidget);
+    await tester.tap(find.text('Saltar'));
+    await tester.pumpAndSettle();
   });
 }
 

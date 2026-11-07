@@ -171,7 +171,7 @@ class CabinetDoorsDrawerGenerator implements FurnitureGenerator {
       );
     }
 
-    // ───────────── Carcasa ─────────────
+    // ------------- Carcasa -------------
     parts.addAll([
       buildPart(
         id: 'side_left',
@@ -269,7 +269,7 @@ class CabinetDoorsDrawerGenerator implements FurnitureGenerator {
       ),
     ]);
 
-    // ───────────── Estantes ajustables ─────────────
+    // ------------- Estantes ajustables -------------
     final shelfCount = math.max(0, math.min(spec.shelfCount, 8));
     if (shelfCount > 0) {
       final shelfSpace = math.max(0.0, dividerBottom - bottomPanelTop);
@@ -309,7 +309,7 @@ class CabinetDoorsDrawerGenerator implements FurnitureGenerator {
       }
     }
 
-    // ───────────── Puertas ─────────────
+    // ------------- Puertas -------------
     for (var index = 0; index < doorCount; index++) {
       final doorX = thickness + gap + index * (doorWidth + gap);
       final doorId = 'door_$index';
@@ -502,7 +502,7 @@ class CabinetDoorsDrawerGenerator implements FurnitureGenerator {
       );
     }
 
-    // ───────────── Uniones ─────────────
+    // ------------- Uniones -------------
     const confirmat = FastenerSpec(
       kind: HardwareKind.confirmat,
       diameterMm: 7,

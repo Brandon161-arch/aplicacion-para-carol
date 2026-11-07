@@ -58,7 +58,7 @@ class HardwareCalculator {
       final partA = furniture.partById(joint.partAId);
       final partB = furniture.partById(joint.partBId);
       final location =
-          '${partA == null ? joint.partAId : _displayPartName(furniture, partA)} ↔ '
+          '${partA == null ? joint.partAId : _displayPartName(furniture, partA)} ? '
           '${partB == null ? joint.partBId : _displayPartName(furniture, partB)}';
       add(
         kind: fastener.kind,
@@ -110,7 +110,7 @@ class HardwareCalculator {
           spec: fastenerSpec,
           quantity: count,
           location:
-              '${_displayPartName(furniture, first)} ↔ ${_displayPartName(furniture, second)}',
+              '${_displayPartName(furniture, first)} ? ${_displayPartName(furniture, second)}',
           note:
               'Unión inferida por contacto; repartir aprox. cada 250 mm. '
               'Verificar antes de perforar.',
@@ -299,7 +299,7 @@ class HardwareCalculator {
         name: 'Tornillo para pata',
         spec: '8 x 40 mm',
         quantity: 2,
-        location: 'Pata ${index + 1} ↔ tablero',
+        location: 'Pata ${index + 1} ? tablero',
         note: '2 tornillos por pata, desde la cara interior.',
       );
     }

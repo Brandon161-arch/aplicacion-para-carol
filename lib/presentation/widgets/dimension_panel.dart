@@ -6,6 +6,7 @@ import '../../domain/entities/furniture_spec.dart';
 import '../../domain/services/furniture_validator.dart';
 import '../../domain/value_objects/measurement_unit.dart';
 import '../providers/designer_providers.dart';
+import 'help_tooltip.dart';
 import '../providers/project_context_provider.dart';
 import 'mm_field.dart';
 import 'stat_chip.dart';
@@ -15,6 +16,32 @@ class DimensionPanel extends ConsumerWidget {
   const DimensionPanel({super.key});
 
   static const List<double> _thicknessOptions = [15, 18, 25];
+
+  Future<void> _confirmReset(
+    BuildContext context,
+    DesignerController controller,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Restablecer mueble'),
+        content: const Text(
+          'Se perderán los cambios de medidas que hiciste. ¿Quieres volver al mueble de ejemplo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Restablecer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) controller.reset();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,7 +60,16 @@ class DimensionPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Dimensiones', style: theme.textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Dimensiones', style: theme.textTheme.titleLarge),
+              ),
+              const HelpTooltip(
+                message: 'Estas medidas definen el tama?o general del mueble. Cambia una y ver?s c?mo se actualizan la vista 3D, el despiece y los costos.',
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(
             'Cambia las medidas y el despiece y la vista 3D se recalculan.',
@@ -52,6 +88,10 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Ancho',
                   value: spec.overallSize.width,
                   unit: unit ?? MeasurementUnit.millimeter,
+                  helperText: 'Rango habitual: 600–1800 mm.',
+                  onFocusChanged: (focused) => ref
+                      .read(dimensionFocusProvider.notifier)
+                      .focus(focused ? 'width' : null),
                   onChanged: (value) =>
                       controller.updateOverallSize(width: value),
                 ),
@@ -63,6 +103,10 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Alto',
                   value: spec.overallSize.height,
                   unit: unit ?? MeasurementUnit.millimeter,
+                  helperText: 'Rango habitual: 700–2200 mm.',
+                  onFocusChanged: (focused) => ref
+                      .read(dimensionFocusProvider.notifier)
+                      .focus(focused ? 'height' : null),
                   onChanged: (value) =>
                       controller.updateOverallSize(height: value),
                 ),
@@ -78,6 +122,10 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Fondo',
                   value: spec.overallSize.depth,
                   unit: unit ?? MeasurementUnit.millimeter,
+                  helperText: 'Profundidad del mueble. Rango: 300–600 mm.',
+                  onFocusChanged: (focused) => ref
+                      .read(dimensionFocusProvider.notifier)
+                      .focus(focused ? 'depth' : null),
                   onChanged: (value) =>
                       controller.updateOverallSize(depth: value),
                 ),
@@ -89,6 +137,10 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Zócalo',
                   value: settings.plinthHeightMm,
                   unit: unit ?? MeasurementUnit.millimeter,
+                  helperText: 'Base elevada del piso. 0–150 mm.',
+                  onFocusChanged: (focused) => ref
+                      .read(dimensionFocusProvider.notifier)
+                      .focus(focused ? 'plinth' : null),
                   onChanged: controller.updatePlinthHeight,
                 ),
               ),
@@ -103,6 +155,10 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Alto del cajón',
                   value: spec.drawerHeightMm,
                   unit: unit ?? MeasurementUnit.millimeter,
+                  helperText: 'Altura del frente del cajón. 120–300 mm.',
+                  onFocusChanged: (focused) => ref
+                      .read(dimensionFocusProvider.notifier)
+                      .focus(focused ? 'drawerHeight' : null),
                   onChanged: controller.updateDrawerHeight,
                 ),
               ),
@@ -111,7 +167,14 @@ class DimensionPanel extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text('Espesor del panel', style: theme.textTheme.labelLarge),
+          Row(
+            children: [
+              Text('Espesor del panel', style: theme.textTheme.labelLarge),
+              const HelpTooltip(
+                message: 'Grosor de las piezas principales. 18 mm es lo más común para muebles de casa.',
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
@@ -140,7 +203,7 @@ class DimensionPanel extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: controller.reset,
+              onPressed: () => _confirmReset(context, controller),
               icon: const Icon(Icons.restart_alt, size: 18),
               label: const Text('Restablecer mueble'),
             ),
@@ -150,17 +213,27 @@ class DimensionPanel extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              StatChip(
-                icon: Icons.layers_outlined,
-                label: 'Panel ${formatMm(settings.panelThicknessMm)} mm',
+              Tooltip(
+                message: 'Grosor de las piezas principales del mueble.',
+                child: StatChip(
+                  icon: Icons.layers_outlined,
+                  label: 'Panel ${formatMm(settings.panelThicknessMm)} mm',
+                ),
               ),
-              StatChip(
-                icon: Icons.layers,
-                label: 'Fondo ${formatMm(settings.backPanelThicknessMm)} mm',
+              Tooltip(
+                message: 'Grosor del panel trasero que cierra el mueble.',
+                child: StatChip(
+                  icon: Icons.layers,
+                  label: 'Fondo ${formatMm(settings.backPanelThicknessMm)} mm',
+                ),
               ),
-              StatChip(
-                icon: Icons.space_bar,
-                label: 'Holgura ${formatMm(settings.doorGapMm)} mm',
+              Tooltip(
+                message:
+                    'Separación entre puertas y cajones. 2 mm evita que rocen.',
+                child: StatChip(
+                  icon: Icons.space_bar,
+                  label: 'Holgura ${formatMm(settings.doorGapMm)} mm',
+                ),
               ),
             ],
           ),
@@ -267,31 +340,34 @@ class _ShelfCountField extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(designerProvider.notifier);
     final count = spec.shelfCount;
-    return InputDecorator(
-      decoration: const InputDecoration(labelText: 'Estantes'),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            tooltip: 'Quitar estante',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-            onPressed: count > 0
-                ? () => controller.updateShelfCount(count - 1)
-                : null,
-            icon: const Icon(Icons.remove, size: 18),
-          ),
-          Text('$count', style: Theme.of(context).textTheme.titleMedium),
-          IconButton(
-            tooltip: 'Agregar estante',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-            onPressed: count < 8
-                ? () => controller.updateShelfCount(count + 1)
-                : null,
-            icon: const Icon(Icons.add, size: 18),
-          ),
-        ],
+    return Tooltip(
+      message: 'Cada estante es una repisa horizontal dentro del mueble. Puedes poner de 0 a 8.',
+      child: InputDecorator(
+        decoration: const InputDecoration(labelText: 'Estantes'),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              tooltip: 'Quitar estante',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 30),
+              onPressed: count > 0
+                  ? () => controller.updateShelfCount(count - 1)
+                  : null,
+              icon: const Icon(Icons.remove, size: 18),
+            ),
+            Text('$count', style: Theme.of(context).textTheme.titleMedium),
+            IconButton(
+              tooltip: 'Agregar estante',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 30),
+              onPressed: count < 8
+                  ? () => controller.updateShelfCount(count + 1)
+                  : null,
+              icon: const Icon(Icons.add, size: 18),
+            ),
+          ],
+        ),
       ),
     );
   }

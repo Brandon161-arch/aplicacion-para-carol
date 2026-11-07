@@ -14,6 +14,7 @@ class MmField extends StatefulWidget {
   final ValueChanged<double> onChanged;
   final String? helperText;
   final MeasurementUnit unit;
+  final ValueChanged<bool>? onFocusChanged;
 
   const MmField({
     super.key,
@@ -23,6 +24,7 @@ class MmField extends StatefulWidget {
     this.fieldKey,
     this.helperText,
     this.unit = MeasurementUnit.millimeter,
+    this.onFocusChanged,
   });
 
   @override
@@ -40,6 +42,11 @@ class _MmFieldState extends State<MmField> {
       text: widget.unit.formatValue(widget.value),
     );
     _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    widget.onFocusChanged?.call(_focusNode.hasFocus);
   }
 
   @override
@@ -55,6 +62,7 @@ class _MmFieldState extends State<MmField> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
   }

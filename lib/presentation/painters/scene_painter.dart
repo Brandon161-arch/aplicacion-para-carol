@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_theme.dart';
+import '../../core/constants/units.dart';
 
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
@@ -23,6 +24,7 @@ class ScenePainter extends CustomPainter {
   final double drawerOpenProgress;
   final bool showHardware;
   final Part? previewPart;
+  final String? highlightDimension;
 
   const ScenePainter({
     required this.furniture,
@@ -34,6 +36,7 @@ class ScenePainter extends CustomPainter {
     this.drawerOpenProgress = 0.0,
     this.showHardware = false,
     this.previewPart,
+    this.highlightDimension,
   });
 
   @override
@@ -96,6 +99,9 @@ class ScenePainter extends CustomPainter {
     if (showBounds) _drawOverallBounds(canvas, size);
     if (previewPart != null) _drawPreview(canvas, size, previewPart!);
     if (showHardware) _drawHardwareMarkers(canvas, size);
+    if (highlightDimension != null) {
+      _drawDimensionHighlight(canvas, size);
+    }
   }
 
   void _drawPreview(Canvas canvas, Size size, Part part) {
@@ -364,8 +370,8 @@ class ScenePainter extends CustomPainter {
     final delta = rawTip - entry;
     final rawLength = delta.distance;
     final direction = rawLength < 0.5 ? const Offset(0, 1) : delta / rawLength;
-    // El eje se acota en pantalla: conserva la direcci�n real, pero evita
-    // barras gigantes cuando la c�mara est� muy cerca.
+    // El eje se acota en pantalla: conserva la direcci?n real, pero evita
+    // barras gigantes cuando la c?mara est? muy cerca.
     final drawnLength = rawLength.clamp(9 * scale, 22 * scale).toDouble();
     final end = entry + direction * drawnLength;
     final perpendicular = Offset(-direction.dy, direction.dx);
@@ -698,6 +704,234 @@ class ScenePainter extends CustomPainter {
     );
   }
 
+  void _drawDimensionHighlight(Canvas canvas, Size size) {
+    final key = highlightDimension;
+    if (key == null) return;
+    final overall = furniture.overallSize;
+    switch (key) {
+      case 'width':
+        _drawMeasureLine(
+          canvas,
+          size,
+          Vector3(0, overall.height, 0),
+          Vector3(overall.width, overall.height, 0),
+          'Ancho ${formatMm(overall.width)} mm',
+        );
+        break;
+      case 'height':
+        _drawMeasureLine(
+          canvas,
+          size,
+          const Vector3(0, 0, 0),
+          Vector3(0, overall.height, 0),
+          'Alto ${formatMm(overall.height)} mm',
+        );
+        break;
+      case 'depth':
+        _drawMeasureLine(
+          canvas,
+          size,
+          Vector3(0, overall.height, 0),
+          Vector3(0, overall.height, overall.depth),
+          'Fondo ${formatMm(overall.depth)} mm',
+        );
+        break;
+      case 'plinth':
+        _drawMeasureLine(
+          canvas,
+          size,
+          const Vector3(0, 0, 0),
+          Vector3(0, furniture.settings.plinthHeightMm, 0),
+          'Zócalo ${formatMm(furniture.settings.plinthHeightMm)} mm',
+        );
+        for (final part in furniture.parts) {
+          if (part.kind == PartKind.plinth) {
+            _drawPartOutline(canvas, size, part);
+          }
+        }
+        break;
+      case 'drawerHeight':
+        final drawers = furniture.parts
+            .where((part) => part.kind == PartKind.drawerFront)
+            .toList(growable: false);
+        for (final part in drawers) {
+          _drawPartOutline(canvas, size, part);
+        }
+        if (drawers.isNotEmpty) {
+          final part = drawers.first;
+          _drawMeasureLine(
+            canvas,
+            size,
+            Vector3(part.position.x, part.position.y, part.position.z),
+            Vector3(
+              part.position.x,
+              part.position.y + part.size.height,
+              part.position.z,
+            ),
+            'Cajón ${formatMm(part.size.height)} mm',
+          );
+        }
+        break;
+    }
+  }
+
+  void _drawMeasureLine(
+    Canvas canvas,
+    Size size,
+    Vector3 from,
+    Vector3 to,
+    String label,
+  ) {
+    const projector = SceneProjector();
+    final start = projector.projectPoint(
+      point: from,
+      camera: camera,
+      viewportWidth: size.width,
+      viewportHeight: size.height,
+    );
+    final end = projector.projectPoint(
+      point: to,
+      camera: camera,
+      viewportWidth: size.width,
+      viewportHeight: size.height,
+    );
+    if (start == null || end == null) return;
+    final a = Offset(start.x, start.y);
+    final b = Offset(end.x, end.y);
+    final halo = Paint()
+      ..color = Colors.black.withValues(alpha: 0.55)
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    final line = Paint()
+      ..color = const Color(0xFFE7AC73)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(a, b, halo);
+    canvas.drawLine(a, b, line);
+    final dot = Paint()..color = const Color(0xFFFFF3E6);
+    canvas.drawCircle(
+      a,
+      3.6,
+      Paint()..color = Colors.black.withValues(alpha: 0.5),
+    );
+    canvas.drawCircle(
+      b,
+      3.6,
+      Paint()..color = Colors.black.withValues(alpha: 0.5),
+    );
+    canvas.drawCircle(a, 2.6, dot);
+    canvas.drawCircle(b, 2.6, dot);
+    _drawMeasureLabel(
+      canvas,
+      size,
+      Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2),
+      label,
+    );
+  }
+
+  void _drawMeasureLabel(
+    Canvas canvas,
+    Size size,
+    Offset center,
+    String label,
+  ) {
+    final text = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Color(0xFFFFF3E6),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final width = text.width + 16;
+    final height = text.height + 9;
+    final dx = center.dx.clamp(width / 2 + 4, size.width - width / 2 - 4);
+    final dy = (center.dy - 18).clamp(
+      height / 2 + 4,
+      size.height - height / 2 - 4,
+    );
+    final rect = Rect.fromCenter(
+      center: Offset(dx, dy),
+      width: width,
+      height: height,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(7)),
+      Paint()..color = const Color(0xE62B231C),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(7)),
+      Paint()
+        ..color = const Color(0x88E7AC73)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    text.paint(
+      canvas,
+      Offset(rect.left + 8, rect.top + (height - text.height) / 2),
+    );
+  }
+
+  void _drawPartOutline(Canvas canvas, Size size, Part part) {
+    final x0 = part.position.x;
+    final y0 = part.position.y;
+    final z0 = part.position.z;
+    final x1 = x0 + part.size.width;
+    final y1 = y0 + part.size.height;
+    final z1 = z0 + part.size.depth;
+    final corners = [
+      Vector3(x0, y0, z0),
+      Vector3(x1, y0, z0),
+      Vector3(x1, y1, z0),
+      Vector3(x0, y1, z0),
+      Vector3(x0, y0, z1),
+      Vector3(x1, y0, z1),
+      Vector3(x1, y1, z1),
+      Vector3(x0, y1, z1),
+    ];
+    const projector = SceneProjector();
+    final projected = [
+      for (final corner in corners)
+        projector.projectPoint(
+          point: corner,
+          camera: camera,
+          viewportWidth: size.width,
+          viewportHeight: size.height,
+        ),
+    ];
+    const edges = [
+      (0, 1),
+      (1, 2),
+      (2, 3),
+      (3, 0),
+      (4, 5),
+      (5, 6),
+      (6, 7),
+      (7, 4),
+      (0, 4),
+      (1, 5),
+      (2, 6),
+      (3, 7),
+    ];
+    final halo = Paint()
+      ..color = Colors.black.withValues(alpha: 0.5)
+      ..strokeWidth = 6;
+    final line = Paint()
+      ..color = const Color(0xFFE7AC73)
+      ..strokeWidth = 2.2;
+    for (final edge in edges) {
+      final a = projected[edge.$1];
+      final b = projected[edge.$2];
+      if (a == null || b == null) continue;
+      canvas.drawLine(Offset(a.x, a.y), Offset(b.x, b.y), halo);
+      canvas.drawLine(Offset(a.x, a.y), Offset(b.x, b.y), line);
+    }
+  }
+
   void _drawOverallBounds(Canvas canvas, Size size) {
     final width = furniture.overallSize.width;
     final height = furniture.overallSize.height;
@@ -815,6 +1049,7 @@ class ScenePainter extends CustomPainter {
       oldDelegate.showBounds != showBounds ||
       oldDelegate.showHardware != showHardware ||
       oldDelegate.previewPart != previewPart ||
+      oldDelegate.highlightDimension != highlightDimension ||
       oldDelegate.explodeFactor != explodeFactor ||
       oldDelegate.doorOpenProgress != doorOpenProgress ||
       oldDelegate.drawerOpenProgress != drawerOpenProgress ||

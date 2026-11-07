@@ -124,7 +124,7 @@ void main() {
 
       expect(confirmats.kind, HardwareKind.confirmat);
       expect(confirmats.quantity, 3);
-      expect(confirmats.placements.single.location, 'Lateral izquierdo ↔ Base');
+      expect(confirmats.placements.single.location, 'Lateral izquierdo ? Base');
       expect(confirmats.placements.single.note, contains('inferida'));
     });
   });

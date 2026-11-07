@@ -4,6 +4,7 @@ import '../../core/constants/units.dart';
 import '../../domain/entities/furniture.dart';
 import '../../domain/entities/part.dart';
 import '../painters/part_palette.dart';
+import 'help_tooltip.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
 import 'viewer_3d.dart';
@@ -18,6 +19,7 @@ class ViewerCard extends StatelessWidget {
   final ValueChanged<String>? onPartSelected;
   final ValueChanged<Part>? onPartMoved;
   final Set<String> hiddenPartIds;
+  final String? highlightDimension;
 
   const ViewerCard({
     super.key,
@@ -30,6 +32,7 @@ class ViewerCard extends StatelessWidget {
     this.onPartSelected,
     this.onPartMoved,
     this.hiddenPartIds = const {},
+    this.highlightDimension,
   });
 
   @override
@@ -59,6 +62,9 @@ class ViewerCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                const HelpTooltip(
+                  message: 'Arrastra sobre el mueble para rotarlo. Usa la rueda del mouse sobre el mueble para acercar o alejar. Doble clic restablece la vista.',
                 ),
                 if (headerAction != null) ...[
                   headerAction!,
@@ -93,6 +99,7 @@ class ViewerCard extends StatelessWidget {
                   onPartSelected: onPartSelected,
                   onPartMoved: onPartMoved,
                   hiddenPartIds: hiddenPartIds,
+                  highlightDimension: highlightDimension,
                 ),
               ),
             ),

@@ -593,7 +593,7 @@ class _AssemblyAndExportDialogState extends State<_AssemblyAndExportDialog>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '📱 Escanea en taller para resaltar la pieza en el visor 3D',
+                        '?? Escanea en taller para resaltar la pieza en el visor 3D',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontStyle: FontStyle.italic,

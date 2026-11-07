@@ -21,6 +21,7 @@ class Viewer3D extends StatefulWidget {
   final ValueChanged<Part>? onPartMoved;
   final bool showBounds;
   final Set<String> hiddenPartIds;
+  final String? highlightDimension;
 
   const Viewer3D({
     super.key,
@@ -31,6 +32,7 @@ class Viewer3D extends StatefulWidget {
     this.onPartMoved,
     this.showBounds = true,
     this.hiddenPartIds = const {},
+    this.highlightDimension,
   });
 
   @override
@@ -485,6 +487,7 @@ class _Viewer3DState extends State<Viewer3D>
                           _drawersProgress.abs() < 0.001 &&
                           _explodeProgress.abs() < 0.001,
                       previewPart: _previewPart,
+                      highlightDimension: widget.highlightDimension,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -509,14 +512,34 @@ class _Viewer3DState extends State<Viewer3D>
                   ],
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _viewButton('ISO', 'iso', 'Perspectiva Isométrica'),
-                    _viewButton('FRONTAL', 'front', 'Vista Frontal (Alzado)'),
-                    _viewButton('LATERAL', 'side', 'Vista Lateral (Perfil)'),
-                    _viewButton('PLANTA', 'top', 'Vista Superior (Planta)'),
-                  ],
+                constraints: BoxConstraints(maxWidth: viewport.width - 20),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _viewButton(
+                        'ISOMÉTRICA',
+                        'iso',
+                        'Vista isométrica: el mueble en perspectiva.',
+                      ),
+                      _viewButton(
+                        'FRONTAL',
+                        'front',
+                        'Vista frontal: de frente, como mirarías la puerta.',
+                      ),
+                      _viewButton(
+                        'LATERAL',
+                        'side',
+                        'Vista lateral: de perfil, para ver la profundidad.',
+                      ),
+                      _viewButton(
+                        'PLANTA',
+                        'top',
+                        'Vista de planta: desde arriba, como un plano.',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -547,27 +570,39 @@ class _Viewer3DState extends State<Viewer3D>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
-                            'Simulación & Apertura',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                          child: Tooltip(
+                            message: 'Abre puertas, cajones o separa las piezas para ver cómo se arma el mueble. Los herrajes se ocultan mientras se mueve.',
+                            child: Text(
+                              'Simulación & Apertura',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: () => setState(
-                            () => _controlsExpanded = !_controlsExpanded,
-                          ),
-                          child: Icon(
-                            _controlsExpanded
-                                ? Icons.expand_less
-                                : Icons.expand_more,
-                            size: 16,
-                            color: Colors.white70,
+                        Tooltip(
+                          message: _controlsExpanded
+                              ? 'Ocultar los controles de apertura'
+                              : 'Mostrar los controles de apertura',
+                          child: InkWell(
+                            onTap: () => setState(
+                              () => _controlsExpanded = !_controlsExpanded,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                _controlsExpanded
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 18,
+                                color: Colors.white70,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -704,8 +739,8 @@ class _Viewer3DState extends State<Viewer3D>
               child: IgnorePointer(
                 child: Text(
                   widget.moveMode
-                      ? 'Arrastra una pieza para moverla · fondo para rotar'
-                      : 'Arrastra para rotar · rueda o pinza para zoom',
+                      ? 'Arrastra una pieza para moverla · rueda sobre el mueble para zoom'
+                      : 'Arrastra para girar · rueda sobre el mueble para zoom',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.65),
                     fontSize: 11.5,

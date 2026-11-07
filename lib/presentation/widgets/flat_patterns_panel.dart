@@ -8,6 +8,7 @@ import '../../domain/services/cut_list_calculator.dart';
 import '../painters/flat_pattern_painter.dart';
 import '../painters/part_palette.dart';
 import 'stat_chip.dart';
+import 'help_tooltip.dart';
 import 'surface_card.dart';
 
 class FlatPatternsPanel extends StatelessWidget {
@@ -58,10 +59,11 @@ class FlatPatternsPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  StatChip(
-                    icon: Icons.grid_view_outlined,
-                    label: '${cutList.items.length}',
+                  const HelpTooltip(
+                    message: 'Cada tarjeta es una pieza que debes cortar. Las medidas son el largo y ancho del panel; el canto es el borde que se cubre con una cinta.',
                   ),
+                  const SizedBox(width: 4),
+                  StatChip(icon: Icons.grid_view_outlined, label: ''),
                 ],
               ),
             ),

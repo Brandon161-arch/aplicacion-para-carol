@@ -10,6 +10,7 @@ import '../../domain/value_objects/size3.dart';
 import '../../domain/value_objects/vector3.dart';
 import '../painters/part_palette.dart';
 import '../painters/wood_swatch_painter.dart';
+import 'help_tooltip.dart';
 import 'interactive_flat_pattern.dart';
 import 'surface_card.dart';
 
@@ -466,7 +467,17 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                       },
                     ),
                     const SizedBox(height: 18),
-                    Text('Medidas de corte', style: theme.textTheme.titleSmall),
+                    Row(
+                      children: [
+                        Text(
+                          'Medidas de corte',
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        const HelpTooltip(
+                          message: 'El largo y el ancho son las medidas del panel plano. El espesor es el grosor del tablero.',
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     LayoutBuilder(
                       builder: (context, constraints) {
@@ -657,7 +668,17 @@ class _PartEditorDialogState extends State<PartEditorDialog> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Text('Veta y cantos', style: theme.textTheme.titleSmall),
+                    Row(
+                      children: [
+                        Text(
+                          'Veta y cantos',
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        const HelpTooltip(
+                          message: 'La veta es la dirección del dibujo de la madera. El canto es la cinta que cubre los bordes para que se vean bien y no se astillen.',
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [

@@ -6,6 +6,7 @@ import '../../domain/services/material_recommender.dart';
 import '../../domain/value_objects/measurement_unit.dart';
 import '../providers/designer_providers.dart';
 import '../providers/project_context_provider.dart';
+import 'help_tooltip.dart';
 import 'pricing_editor_dialog.dart';
 import 'surface_card.dart';
 
@@ -33,7 +34,14 @@ class RegionalMaterialPanel extends ConsumerWidget {
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(18),
-            child: CircularProgressIndicator(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 10),
+                Text('Cargando país, materiales y precios…'),
+              ],
+            ),
           ),
         ),
       );
@@ -47,7 +55,19 @@ class RegionalMaterialPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('País, lugar y material', style: theme.textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'País, lugar y material',
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
+              const HelpTooltip(
+                message: 'El clima y el uso cambian qué material conviene. En baños o zonas húmedas evita el MDF o aglomerado estándar.',
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(
             'Elige las condiciones reales de uso; las medidas internas siguen en milímetros.',

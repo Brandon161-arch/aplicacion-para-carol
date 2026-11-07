@@ -18,8 +18,10 @@ import '../providers/library_providers.dart';
 import '../providers/project_context_provider.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/flat_patterns_panel.dart';
+import '../widgets/flow_steps.dart';
 import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/geometric_template_panel.dart';
+import '../widgets/help_tooltip.dart';
 import '../widgets/material_selector_panel.dart';
 import '../widgets/mm_field.dart';
 import '../widgets/part_detail_dialog.dart';
@@ -42,6 +44,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
   String? _selectedPartId;
   bool _moveMode = true;
   bool _sketchDrawing = false;
+  String? _focusedDimension;
 
   @override
   void initState() {
@@ -386,6 +389,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       label: 'Ancho',
                       value: draft.overallSize.width,
                       unit: displayUnit,
+                      onFocusChanged: (focused) => setState(
+                        () => _focusedDimension = focused ? 'width' : null,
+                      ),
                       onChanged: (value) =>
                           controller.updateOverallSize(width: value),
                     ),
@@ -397,6 +403,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       label: 'Alto',
                       value: draft.overallSize.height,
                       unit: displayUnit,
+                      onFocusChanged: (focused) => setState(
+                        () => _focusedDimension = focused ? 'height' : null,
+                      ),
                       onChanged: (value) =>
                           controller.updateOverallSize(height: value),
                     ),
@@ -409,6 +418,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 label: 'Fondo',
                 value: draft.overallSize.depth,
                 unit: displayUnit,
+                onFocusChanged: (focused) => setState(
+                  () => _focusedDimension = focused ? 'depth' : null,
+                ),
                 onChanged: (value) =>
                     controller.updateOverallSize(depth: value),
               ),
@@ -513,9 +525,23 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 ),
               ),
               const Divider(height: 26),
+              Row(
+                children: [
+                  Text(
+                    'Partir de una plantilla',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const HelpTooltip(
+                    message: 'Una plantilla es un mueble de ejemplo que ya viene armado. Elígela y después cambia las medidas o el material a tu gusto.',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
               Text(
-                'Partir de una plantilla',
-                style: theme.textTheme.labelLarge,
+                'Elige un ejemplo para no empezar desde cero.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -525,6 +551,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   for (final preset in presets)
                     ActionChip(
                       label: Text(preset.name),
+                      tooltip: preset.description,
                       onPressed: () =>
                           loadPreset(preset.name, preset.furniture),
                     ),
@@ -728,7 +755,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               if (draft.parts.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Toca una pieza de la lista para ver su 3D y su plantilla.',
+                  'Toca una pieza para ver su 3D y su plantilla. Usa el ojo para mostrarla u ocultarla en el modelo y el ícono de basura para eliminarla.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -828,6 +855,7 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       onPartSelected: selectPart,
       onPartMoved: controller.updatePart,
       hiddenPartIds: draft.hiddenPartIds,
+      highlightDimension: _focusedDimension,
     );
 
     final templates = FlatPatternsPanel(
@@ -923,6 +951,15 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                     canSave: draft.parts.isNotEmpty && !hasBuildabilityErrors,
                     onSave: saveModel,
                     onNew: confirmNewModel,
+                  ),
+                  const SizedBox(height: 12),
+                  const FlowSteps(
+                    steps: [
+                      'Elige o agrega piezas',
+                      'Ajusta medidas y material',
+                      'Revisa el 3D',
+                      'Corta y arma',
+                    ],
                   ),
                   const SizedBox(height: 18),
                   content,

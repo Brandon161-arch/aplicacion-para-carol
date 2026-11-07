@@ -5,6 +5,7 @@ import '../../domain/services/cut_list_calculator.dart';
 import '../providers/designer_providers.dart';
 import '../widgets/cut_list_table.dart';
 import '../widgets/dimension_panel.dart';
+import '../widgets/flow_steps.dart';
 import '../widgets/flat_patterns_panel.dart';
 import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/part_detail_dialog.dart';
@@ -21,6 +22,7 @@ class DesignerScreen extends ConsumerWidget {
     final furniture = ref.watch(furnitureProvider);
     final cutList = ref.watch(cutListProvider);
     final catalog = ref.watch(materialCatalogProvider);
+    final highlightDimension = ref.watch(dimensionFocusProvider);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     const dimensionControls = Column(
@@ -60,14 +62,22 @@ class DesignerScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: ViewerCard(furniture: furniture, viewerHeight: 480),
+                    child: ViewerCard(
+                      furniture: furniture,
+                      viewerHeight: 480,
+                      highlightDimension: highlightDimension,
+                    ),
                   ),
                   const SizedBox(width: 20),
                   SizedBox(width: 400, child: templates),
                 ],
               )
             else ...[
-              ViewerCard(furniture: furniture, viewerHeight: 420),
+              ViewerCard(
+                furniture: furniture,
+                viewerHeight: 420,
+                highlightDimension: highlightDimension,
+              ),
               const SizedBox(height: 20),
               templates,
             ],
@@ -114,6 +124,15 @@ class DesignerScreen extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  const FlowSteps(
+                    steps: [
+                      'Ajusta medidas',
+                      'Elige material',
+                      'Revisa el 3D',
+                      'Usa el despiece',
+                    ],
                   ),
                   const SizedBox(height: 18),
                   content,

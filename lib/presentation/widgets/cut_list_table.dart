@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/theme/app_theme.dart';
+import 'help_tooltip.dart';
 
 import '../../core/constants/units.dart';
 import '../../domain/entities/material.dart';
@@ -32,7 +34,14 @@ class CutListTable extends StatelessWidget {
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Despiece', style: theme.textTheme.titleLarge),
+        Row(
+          children: [
+            Text('Despiece', style: theme.textTheme.titleLarge),
+            const HelpTooltip(
+              message: 'El despiece es la lista de piezas que debes cortar. ×2 significa que necesitas dos piezas iguales; el canto es el borde que se cubre con cinta.',
+            ),
+          ],
+        ),
         const SizedBox(height: 2),
         Text(
           onItemTap == null
@@ -45,7 +54,7 @@ class CutListTable extends StatelessWidget {
       ],
     );
 
-    final chips = [
+    final chips = <Widget>[
       StatChip(
         icon: Icons.format_list_numbered,
         label: countLabel(cutList.items.length, 'fila', 'filas'),
@@ -61,6 +70,14 @@ class CutListTable extends StatelessWidget {
       StatChip(
         icon: Icons.content_cut,
         label: 'Kerf ${formatMm(cutList.kerfMm)} mm',
+      ),
+      Tooltip(
+        message:
+            'Copiar la lista para llevarla al taller o enviarla por mensaje.',
+        child: IconButton(
+          onPressed: () => _copyList(context),
+          icon: const Icon(Icons.copy_all_outlined, size: 19),
+        ),
       ),
     ];
 
@@ -127,13 +144,36 @@ class CutListTable extends StatelessWidget {
                     dataTextStyle: theme.textTheme.bodyMedium,
                     columns: const [
                       DataColumn(label: Text('Pieza')),
-                      DataColumn(label: Text('Cant.'), numeric: true),
+                      DataColumn(
+                        label: Tooltip(
+                          message: 'Cantidad de piezas iguales que necesitas.',
+                          child: Text('Cant.'),
+                        ),
+                        numeric: true,
+                      ),
                       DataColumn(label: Text('Largo'), numeric: true),
                       DataColumn(label: Text('Ancho'), numeric: true),
-                      DataColumn(label: Text('Esp.'), numeric: true),
+                      DataColumn(
+                        label: Tooltip(
+                          message: 'Grosor del tablero en milímetros.',
+                          child: Text('Esp.'),
+                        ),
+                        numeric: true,
+                      ),
                       DataColumn(label: Text('Material')),
-                      DataColumn(label: Text('Veta')),
-                      DataColumn(label: Text('Cantos'), numeric: true),
+                      DataColumn(
+                        label: Tooltip(
+                          message: 'Dirección del dibujo de la madera. Sirve para que las piezas se vean uniformes.',
+                          child: Text('Veta'),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Tooltip(
+                          message: 'Bordes cubiertos con una cinta llamada canto. Se compra por metro lineal.',
+                          child: Text('Cantos'),
+                        ),
+                        numeric: true,
+                      ),
                       DataColumn(label: Text('Área m²'), numeric: true),
                       DataColumn(label: Text('Ver')),
                     ],
@@ -238,6 +278,26 @@ class CutListTable extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _copyList(BuildContext context) async {
+    final buffer = StringBuffer('Despiece de Mueble Maestro\n');
+    for (final item in cutList.items) {
+      final banding = item.bandedEdgeCount == 0
+          ? 'sin canto'
+          : '${item.bandedEdgeCount} canto(s)';
+      buffer.writeln(
+        '${item.quantity} × ${item.name}: '
+        '${formatMm(item.cutSize.length)} × ${formatMm(item.cutSize.width)} × '
+        '${formatMm(item.cutSize.thickness)} mm · ${item.materialName} · '
+        'veta ${item.grain.label} · $banding',
+      );
+    }
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Lista de piezas copiada.')));
   }
 
   String _bandingLabel(CutListItem item) {

@@ -5,6 +5,7 @@ import '../../domain/entities/material.dart';
 import '../../domain/entities/part.dart';
 import '../providers/custom_model_providers.dart';
 import '../painters/wood_swatch_painter.dart';
+import 'help_tooltip.dart';
 import '../providers/designer_providers.dart';
 import 'surface_card.dart';
 
@@ -46,6 +47,9 @@ class MaterialSelectorPanel extends ConsumerWidget {
                   'Maderas y tableros',
                   style: theme.textTheme.titleMedium,
                 ),
+              ),
+              const HelpTooltip(
+                message: 'Elige el aspecto de la madera o tablero. El MDF y el aglomerado son económicos; las maderas duras resisten mejor la humedad.',
               ),
             ],
           ),

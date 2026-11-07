@@ -287,11 +287,11 @@ class _PlanSketchPanelState extends State<PlanSketchPanel> {
   }
 
   String _toolLabel(PartShapeKind kind) => switch (kind) {
-    PartShapeKind.rectangle => 'Rect�ngulo',
-    PartShapeKind.circle => 'C�rculo',
+    PartShapeKind.rectangle => 'Rect?ngulo',
+    PartShapeKind.circle => 'C?rculo',
     PartShapeKind.ellipse => 'Elipse',
     PartShapeKind.roundedRectangle => 'Redondeado',
-    PartShapeKind.polygon => 'Hex�gono',
+    PartShapeKind.polygon => 'Hex?gono',
   };
 
   Color _materialColor(Material? material) {

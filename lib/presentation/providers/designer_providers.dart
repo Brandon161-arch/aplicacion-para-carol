@@ -124,3 +124,16 @@ final validationProvider = Provider<List<ValidationIssue>>((ref) {
   final spec = ref.watch(designerProvider);
   return const FurnitureValidator().validate(spec);
 });
+
+/// Medida que el usuario está editando, para resaltarla en el visor 3D.
+class DimensionFocusController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void focus(String? dimension) => state = dimension;
+}
+
+final dimensionFocusProvider =
+    NotifierProvider<DimensionFocusController, String?>(
+      DimensionFocusController.new,
+    );
