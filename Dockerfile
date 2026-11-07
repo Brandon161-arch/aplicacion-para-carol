@@ -1,11 +1,16 @@
 # syntax=docker/dockerfile:1.7
 
 # Imagen oficial de Flutter para construir la app web.
-# Puedes fijar una versión exacta con:
-#   docker build --build-arg FLUTTER_IMAGE=ghcr.io/cirruslabs/flutter:3.47.6 .
-ARG FLUTTER_IMAGE=ghcr.io/cirruslabs/flutter:3.47.6
+# "stable" es la etiqueta publicada y mantenida por Cirrus Labs.
+# Si necesitas fijar una versión, usa una etiqueta que exista en:
+#   https://github.com/cirruslabs/docker-images-flutter/pkgs/container/flutter
+ARG FLUTTER_IMAGE=ghcr.io/cirruslabs/flutter:stable
 
 FROM ${FLUTTER_IMAGE} AS build
+
+# El stage de compilación corre como root para poder escribir /app
+# independientemente del usuario por defecto de la imagen de Flutter.
+USER root
 
 WORKDIR /app
 
