@@ -1,0 +1,17 @@
+.git
+.gitignore
+.idea
+.vscode
+build
+.dart_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+android
+ios
+linux
+macos
+windows
+test
+venv
+*.iml
+README.md
