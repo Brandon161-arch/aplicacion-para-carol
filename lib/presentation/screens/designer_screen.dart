@@ -11,8 +11,7 @@ import '../widgets/furniture_estimate_panel.dart';
 import '../widgets/part_detail_dialog.dart';
 import '../widgets/regional_material_panel.dart';
 import '../widgets/viewer_card.dart';
-import '../widgets/ergonomics_panel.dart';
-import '../widgets/security_logistics_panel.dart';
+import '../widgets/workspace_layout.dart';
 
 class DesignerScreen extends ConsumerWidget {
   const DesignerScreen({super.key});
@@ -25,17 +24,6 @@ class DesignerScreen extends ConsumerWidget {
     final highlightDimension = ref.watch(dimensionFocusProvider);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    const dimensionControls = Column(
-      children: [
-        DimensionPanel(),
-        SizedBox(height: 14),
-        RegionalMaterialPanel(),
-        SizedBox(height: 14),
-        ErgonomicsPanel(),
-        SizedBox(height: 14),
-        SecurityLogisticsPanel(),
-      ],
-    );
 
     void openDetail(BuildContext context, CutListItem item) {
       final part = furniture.partById(item.partIds.first);
@@ -43,107 +31,67 @@ class DesignerScreen extends ConsumerWidget {
       showPartDetailDialog(context, part: part, item: item, catalog: catalog);
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 1050;
-        final templatesBeside = constraints.maxWidth >= 1280;
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Diseño del mueble', style: theme.textTheme.headlineSmall),
+        const SizedBox(height: 4),
+        Text(
+          'Mueble de ejemplo: repisa baja con 2 puertas y 1 cajón. '
+          'Cambia las medidas y todo se recalcula.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const FlowSteps(
+          steps: [
+            'Ajusta medidas',
+            'Elige material',
+            'Revisa el 3D',
+            'Usa el despiece',
+          ],
+        ),
+      ],
+    );
 
-        final templates = FlatPatternsPanel(
+    final left = Column(
+      children: [
+        const DimensionPanel(),
+        const SizedBox(height: 14),
+        const RegionalMaterialPanel(),
+      ],
+    );
+
+    final right = Column(
+      children: [
+        FlatPatternsPanel(
           cutList: cutList,
           catalog: catalog,
-          height: templatesBeside ? 480 : 430,
           onOpen: (item) => openDetail(context, item),
-        );
+        ),
+        const SizedBox(height: 16),
+        CutListTable(
+          cutList: cutList,
+          catalog: catalog,
+          onItemTap: (item) => openDetail(context, item),
+        ),
+        const SizedBox(height: 20),
+        FurnitureEstimatePanel(furniture: furniture),
+        const SizedBox(height: 24),
+        _FooterNote(theme: theme),
+      ],
+    );
 
-        final main = Column(
-          children: [
-            if (templatesBeside)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ViewerCard(
-                      furniture: furniture,
-                      viewerHeight: 480,
-                      highlightDimension: highlightDimension,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  SizedBox(width: 400, child: templates),
-                ],
-              )
-            else ...[
-              ViewerCard(
-                furniture: furniture,
-                viewerHeight: 420,
-                highlightDimension: highlightDimension,
-              ),
-              const SizedBox(height: 20),
-              templates,
-            ],
-            const SizedBox(height: 20),
-            CutListTable(
-              cutList: cutList,
-              catalog: catalog,
-              onItemTap: (item) => openDetail(context, item),
-            ),
-            const SizedBox(height: 20),
-            FurnitureEstimatePanel(furniture: furniture),
-          ],
-        );
-
-        final content = isWide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(width: 360, child: dimensionControls),
-                  const SizedBox(width: 20),
-                  Expanded(child: main),
-                ],
-              )
-            : Column(
-                children: [dimensionControls, const SizedBox(height: 20), main],
-              );
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1500),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Diseño del mueble',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Mueble de ejemplo: repisa baja con 2 puertas y 1 cajón. '
-                    'Cambia las medidas y todo se recalcula.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const FlowSteps(
-                    steps: [
-                      'Ajusta medidas',
-                      'Elige material',
-                      'Revisa el 3D',
-                      'Usa el despiece',
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  content,
-                  const SizedBox(height: 24),
-                  _FooterNote(theme: theme),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    return WorkspaceLayout(
+      header: header,
+      left: left,
+      viewer: ViewerCard(
+        furniture: furniture,
+        fillHeight: true,
+        highlightDimension: highlightDimension,
+      ),
+      right: right,
     );
   }
 }

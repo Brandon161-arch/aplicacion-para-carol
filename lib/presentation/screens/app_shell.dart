@@ -16,6 +16,7 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  bool _railCollapsed = false;
   @override
   void initState() {
     super.initState();
@@ -158,8 +159,26 @@ class _AppShellState extends ConsumerState<AppShell> {
                     NavigationRail(
                       selectedIndex: section.index,
                       onDestinationSelected: select,
-                      labelType: NavigationRailLabelType.all,
+                      labelType: _railCollapsed
+                          ? NavigationRailLabelType.none
+                          : NavigationRailLabelType.all,
+                      minWidth: _railCollapsed ? 70 : 80,
                       backgroundColor: theme.scaffoldBackgroundColor,
+                      leading: Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 6),
+                        child: IconButton(
+                          tooltip: _railCollapsed
+                              ? 'Expandir menú'
+                              : 'Contraer menú',
+                          onPressed: () =>
+                              setState(() => _railCollapsed = !_railCollapsed),
+                          icon: Icon(
+                            _railCollapsed
+                                ? Icons.chevron_right
+                                : Icons.chevron_left,
+                          ),
+                        ),
+                      ),
                       destinations: railDestinations,
                     ),
                     VerticalDivider(width: 1, color: scheme.outlineVariant),

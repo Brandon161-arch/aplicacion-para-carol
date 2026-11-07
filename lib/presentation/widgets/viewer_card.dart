@@ -20,6 +20,7 @@ class ViewerCard extends StatelessWidget {
   final ValueChanged<Part>? onPartMoved;
   final Set<String> hiddenPartIds;
   final String? highlightDimension;
+  final bool fillHeight;
 
   const ViewerCard({
     super.key,
@@ -33,6 +34,7 @@ class ViewerCard extends StatelessWidget {
     this.onPartMoved,
     this.hiddenPartIds = const {},
     this.highlightDimension,
+    this.fillHeight = false,
   });
 
   @override
@@ -86,38 +88,58 @@ class ViewerCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: SizedBox(height: 42, child: toolbar),
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                height: viewerHeight,
-                child: Viewer3D(
-                  furniture: furniture,
-                  moveMode: moveMode,
-                  selectedPartId: selectedPartId,
-                  onPartSelected: onPartSelected,
-                  onPartMoved: onPartMoved,
-                  hiddenPartIds: hiddenPartIds,
-                  highlightDimension: highlightDimension,
+          if (fillHeight)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Viewer3D(
+                    furniture: furniture,
+                    moveMode: moveMode,
+                    selectedPartId: selectedPartId,
+                    onPartSelected: onPartSelected,
+                    onPartMoved: onPartMoved,
+                    hiddenPartIds: hiddenPartIds,
+                    highlightDimension: highlightDimension,
+                  ),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  height: viewerHeight,
+                  child: Viewer3D(
+                    furniture: furniture,
+                    moveMode: moveMode,
+                    selectedPartId: selectedPartId,
+                    onPartSelected: onPartSelected,
+                    onPartMoved: onPartMoved,
+                    hiddenPartIds: hiddenPartIds,
+                    highlightDimension: highlightDimension,
+                  ),
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: const [
-                _LegendItem(kind: PartKind.sidePanel, label: 'Carcasa'),
-                _LegendItem(kind: PartKind.shelf, label: 'Estantes'),
-                _LegendItem(kind: PartKind.door, label: 'Puertas y frentes'),
-                _LegendItem(kind: PartKind.backPanel, label: 'Fondos'),
-                _LegendItem(kind: PartKind.drawerBottom, label: 'Cajón'),
-              ],
+          if (!fillHeight)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: const [
+                  _LegendItem(kind: PartKind.sidePanel, label: 'Carcasa'),
+                  _LegendItem(kind: PartKind.shelf, label: 'Estantes'),
+                  _LegendItem(kind: PartKind.door, label: 'Puertas y frentes'),
+                  _LegendItem(kind: PartKind.backPanel, label: 'Fondos'),
+                  _LegendItem(kind: PartKind.drawerBottom, label: 'Cajón'),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

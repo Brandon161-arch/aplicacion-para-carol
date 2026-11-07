@@ -656,7 +656,7 @@ class _Viewer3DState extends State<Viewer3D>
                         ),
                       ],
                     ),
-                    if (_showHardware) ...[
+                    if (_controlsExpanded && _showHardware) ...[
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 8,

@@ -50,6 +50,7 @@ class DimensionPanel extends ConsumerWidget {
     final issues = ref.watch(validationProvider);
     final settings = spec.settings;
     final unit = ref.watch(projectContextValueProvider)?.unit;
+    final focusedDimension = ref.watch(dimensionFocusProvider);
     final theme = Theme.of(context);
     final selectedThickness =
         _thicknessOptions.contains(settings.panelThicknessMm)
@@ -88,7 +89,9 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Ancho',
                   value: spec.overallSize.width,
                   unit: unit ?? MeasurementUnit.millimeter,
-                  helperText: 'Rango habitual: 600–1800 mm.',
+                  helperText: focusedDimension == 'width'
+                      ? 'Rango habitual: 600–1800 mm.'
+                      : null,
                   onFocusChanged: (focused) => ref
                       .read(dimensionFocusProvider.notifier)
                       .focus(focused ? 'width' : null),
@@ -103,7 +106,9 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Alto',
                   value: spec.overallSize.height,
                   unit: unit ?? MeasurementUnit.millimeter,
-                  helperText: 'Rango habitual: 700–2200 mm.',
+                  helperText: focusedDimension == 'height'
+                      ? 'Rango habitual: 700–2200 mm.'
+                      : null,
                   onFocusChanged: (focused) => ref
                       .read(dimensionFocusProvider.notifier)
                       .focus(focused ? 'height' : null),
@@ -122,7 +127,9 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Fondo',
                   value: spec.overallSize.depth,
                   unit: unit ?? MeasurementUnit.millimeter,
-                  helperText: 'Profundidad del mueble. Rango: 300–600 mm.',
+                  helperText: focusedDimension == 'depth'
+                      ? 'Profundidad del mueble. Rango: 300–600 mm.'
+                      : null,
                   onFocusChanged: (focused) => ref
                       .read(dimensionFocusProvider.notifier)
                       .focus(focused ? 'depth' : null),
@@ -137,7 +144,9 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Zócalo',
                   value: settings.plinthHeightMm,
                   unit: unit ?? MeasurementUnit.millimeter,
-                  helperText: 'Base elevada del piso. 0–150 mm.',
+                  helperText: focusedDimension == 'plinth'
+                      ? 'Base elevada del piso. 0–150 mm.'
+                      : null,
                   onFocusChanged: (focused) => ref
                       .read(dimensionFocusProvider.notifier)
                       .focus(focused ? 'plinth' : null),
@@ -155,7 +164,9 @@ class DimensionPanel extends ConsumerWidget {
                   label: 'Alto del cajón',
                   value: spec.drawerHeightMm,
                   unit: unit ?? MeasurementUnit.millimeter,
-                  helperText: 'Altura del frente del cajón. 120–300 mm.',
+                  helperText: focusedDimension == 'drawerHeight'
+                      ? 'Altura del frente del cajón. 120–300 mm.'
+                      : null,
                   onFocusChanged: (focused) => ref
                       .read(dimensionFocusProvider.notifier)
                       .focus(focused ? 'drawerHeight' : null),
@@ -344,29 +355,43 @@ class _ShelfCountField extends ConsumerWidget {
       message: 'Cada estante es una repisa horizontal dentro del mueble. Puedes poner de 0 a 8.',
       child: InputDecorator(
         decoration: const InputDecoration(labelText: 'Estantes'),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              tooltip: 'Quitar estante',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 30),
-              onPressed: count > 0
-                  ? () => controller.updateShelfCount(count - 1)
-                  : null,
-              icon: const Icon(Icons.remove, size: 18),
-            ),
-            Text('$count', style: Theme.of(context).textTheme.titleMedium),
-            IconButton(
-              tooltip: 'Agregar estante',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 30),
-              onPressed: count < 8
-                  ? () => controller.updateShelfCount(count + 1)
-                  : null,
-              icon: const Icon(Icons.add, size: 18),
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Quitar estante',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 30,
+                ),
+                iconSize: 17,
+                onPressed: count > 0
+                    ? () => controller.updateShelfCount(count - 1)
+                    : null,
+                icon: const Icon(Icons.remove, size: 18),
+              ),
+              const SizedBox(width: 2),
+              Text('$count', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Agregar estante',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 30,
+                ),
+                iconSize: 17,
+                onPressed: count < 8
+                    ? () => controller.updateShelfCount(count + 1)
+                    : null,
+                icon: const Icon(Icons.add, size: 18),
+              ),
+            ],
+          ),
         ),
       ),
     );

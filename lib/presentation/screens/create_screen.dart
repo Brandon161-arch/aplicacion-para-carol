@@ -30,6 +30,7 @@ import '../widgets/plan_sketch_panel.dart';
 import '../widgets/regional_material_panel.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/viewer_card.dart';
+import '../widgets/workspace_layout.dart';
 
 class CreateScreen extends ConsumerStatefulWidget {
   const CreateScreen({super.key});
@@ -113,7 +114,6 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       }
     }
     final selected = selectedPart;
-
     void selectPart(String id) => setState(() => _selectedPartId = id);
 
     void updatePartPosition(Part part, {double? x, double? y, double? z}) {
@@ -392,6 +392,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       onFocusChanged: (focused) => setState(
                         () => _focusedDimension = focused ? 'width' : null,
                       ),
+                      helperText: _focusedDimension == 'width'
+                          ? 'Rango habitual: 600–1800 mm.'
+                          : null,
                       onChanged: (value) =>
                           controller.updateOverallSize(width: value),
                     ),
@@ -406,6 +409,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                       onFocusChanged: (focused) => setState(
                         () => _focusedDimension = focused ? 'height' : null,
                       ),
+                      helperText: _focusedDimension == 'height'
+                          ? 'Rango habitual: 700–2200 mm.'
+                          : null,
                       onChanged: (value) =>
                           controller.updateOverallSize(height: value),
                     ),
@@ -421,6 +427,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                 onFocusChanged: (focused) => setState(
                   () => _focusedDimension = focused ? 'depth' : null,
                 ),
+                helperText: _focusedDimension == 'depth'
+                    ? 'Profundidad del mueble. Rango: 300–600 mm.'
+                    : null,
                 onChanged: (value) =>
                     controller.updateOverallSize(depth: value),
               ),
@@ -527,9 +536,11 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
               const Divider(height: 26),
               Row(
                 children: [
-                  Text(
-                    'Partir de una plantilla',
-                    style: theme.textTheme.labelLarge,
+                  Expanded(
+                    child: Text(
+                      'Partir de una plantilla',
+                      style: theme.textTheme.labelLarge,
+                    ),
                   ),
                   const HelpTooltip(
                     message: 'Una plantilla es un mueble de ejemplo que ya viene armado. Elígela y después cambia las medidas o el material a tu gusto.',
@@ -629,128 +640,126 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
                   ),
                 )
               else
-                SizedBox(
-                  height: 320,
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: draft.parts.length,
-                    separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final part = draft.parts[index];
-                      final material = catalog.byId(part.materialId);
-                      final hidden = draft.hiddenPartIds.contains(part.id);
-                      return Material(
-                        color: Colors.transparent,
-                        child: ListTile(
-                          dense: true,
-                          selected: _selectedPartId == part.id,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Tooltip(
-                            message: hidden
-                                ? 'Mostrar en el modelo 3D'
-                                : 'Ocultar del modelo 3D',
-                            child: IconButton(
-                              onPressed: () =>
-                                  controller.togglePartVisibility(part.id),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 34,
-                                height: 34,
-                              ),
-                              icon: Icon(
-                                hidden
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 18,
-                                color: hidden
-                                    ? scheme.error
-                                    : scheme.onSurfaceVariant,
-                              ),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: draft.parts.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final part = draft.parts[index];
+                    final material = catalog.byId(part.materialId);
+                    final hidden = draft.hiddenPartIds.contains(part.id);
+                    return Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        selected: _selectedPartId == part.id,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Tooltip(
+                          message: hidden
+                              ? 'Mostrar en el modelo 3D'
+                              : 'Ocultar del modelo 3D',
+                          child: IconButton(
+                            onPressed: () =>
+                                controller.togglePartVisibility(part.id),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 34,
+                              height: 34,
                             ),
-                          ),
-                          title: Text(
-                            part.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                            icon: Icon(
+                              hidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                              color: hidden
+                                  ? scheme.error
+                                  : scheme.onSurfaceVariant,
                             ),
-                          ),
-                          subtitle: Text(
-                            '${formatMm(part.cutSize.length)} × ${formatMm(part.cutSize.width)} × ${formatMm(part.cutSize.thickness)} mm'
-                            '${material == null ? '' : ' · ${material.name}'}'
-                            '${hidden ? ' · oculta en 3D' : ''}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          onTap: () => selectPart(part.id),
-                          trailing: PopupMenuButton<String>(
-                            tooltip: 'Acciones de la pieza',
-                            onSelected: (value) {
-                              switch (value) {
-                                case 'edit':
-                                  addPart(initial: part);
-                                  break;
-                                case 'duplicate':
-                                  controller.duplicatePart(part.id);
-                                  break;
-                                case 'delete':
-                                  confirmDelete(part);
-                                  break;
-                                case 'detail':
-                                  openPartDetail(part);
-                                  break;
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'detail',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.visibility_outlined, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Ver 3D y plantilla'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit_outlined, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Editar'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'duplicate',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.copy_outlined, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Duplicar'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Eliminar'),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
+                        title: Text(
+                          part.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${formatMm(part.cutSize.length)} × ${formatMm(part.cutSize.width)} × ${formatMm(part.cutSize.thickness)} mm'
+                          '${material == null ? '' : ' · ${material.name}'}'
+                          '${hidden ? ' · oculta en 3D' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        onTap: () => selectPart(part.id),
+                        trailing: PopupMenuButton<String>(
+                          tooltip: 'Acciones de la pieza',
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'edit':
+                                addPart(initial: part);
+                                break;
+                              case 'duplicate':
+                                controller.duplicatePart(part.id);
+                                break;
+                              case 'delete':
+                                confirmDelete(part);
+                                break;
+                              case 'detail':
+                                openPartDetail(part);
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'detail',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.visibility_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Ver 3D y plantilla'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Editar'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'duplicate',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.copy_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Duplicar'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Eliminar'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               if (draft.parts.isNotEmpty) ...[
                 const SizedBox(height: 6),
@@ -768,35 +777,32 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
     );
 
     Widget emptyViewer() => SurfaceCard(
-      child: SizedBox(
-        height: 420,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.add_box_outlined,
-                size: 48,
-                color: scheme.primary.withValues(alpha: 0.55),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.add_box_outlined,
+              size: 48,
+              color: scheme.primary.withValues(alpha: 0.55),
+            ),
+            const SizedBox(height: 12),
+            Text('Tu mueble empieza aquí', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Agrega una pieza con medidas reales o carga una plantilla.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 12),
-              Text('Tu mueble empieza aquí', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(
-                'Agrega una pieza con medidas reales o carga una plantilla.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => addPart(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Agregar primera pieza'),
-              ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => addPart(),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Agregar primera pieza'),
+            ),
+          ],
         ),
       ),
     );
@@ -840,9 +846,9 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       );
     }
 
-    Widget buildViewer(double height) => ViewerCard(
+    Widget buildViewer() => ViewerCard(
       furniture: furniture,
-      viewerHeight: height,
+      fillHeight: true,
       toolbar: selectionToolbar(),
       headerAction: FilterChip(
         label: const Text('Mover'),
@@ -875,100 +881,57 @@ class _CreateScreenState extends ConsumerState<CreateScreen> {
       },
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 1100;
-        final templatesBeside = constraints.maxWidth >= 1280;
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CreateHeader(
+          theme: theme,
+          canSave: draft.parts.isNotEmpty && !hasBuildabilityErrors,
+          onSave: saveModel,
+          onNew: confirmNewModel,
+        ),
+        const SizedBox(height: 12),
+        const FlowSteps(
+          steps: [
+            'Elige o agrega piezas',
+            'Ajusta medidas y material',
+            'Revisa el 3D',
+            'Corta y arma',
+          ],
+        ),
+      ],
+    );
 
-        final main = draft.parts.isEmpty
-            ? Column(
-                children: [
-                  emptyViewer(),
-                  const SizedBox(height: 20),
-                  templates,
-                ],
-              )
-            : Column(
-                children: [
-                  if (templatesBeside)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: buildViewer(480)),
-                        const SizedBox(width: 20),
-                        SizedBox(width: 400, child: templates),
-                      ],
-                    )
-                  else ...[
-                    buildViewer(420),
-                    const SizedBox(height: 20),
-                    templates,
-                  ],
-                  const SizedBox(height: 20),
-                  CutListTable(
-                    cutList: cutList,
-                    catalog: catalog,
-                    onItemTap: (item) {
-                      final part = furniture.partById(item.partIds.first);
-                      if (part != null) {
-                        showPartDetailDialog(
-                          context,
-                          part: part,
-                          item: item,
-                          catalog: catalog,
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  FurnitureEstimatePanel(furniture: furniture),
-                ],
+    final rightPanel = Column(
+      children: [
+        templates,
+        const SizedBox(height: 16),
+        CutListTable(
+          cutList: cutList,
+          catalog: catalog,
+          onItemTap: (item) {
+            final part = furniture.partById(item.partIds.first);
+            if (part != null) {
+              showPartDetailDialog(
+                context,
+                part: part,
+                item: item,
+                catalog: catalog,
               );
+            }
+          },
+        ),
+        const SizedBox(height: 20),
+        FurnitureEstimatePanel(furniture: furniture),
+      ],
+    );
 
-        final content = isWide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 370, child: leftPanel),
-                  const SizedBox(width: 20),
-                  Expanded(child: main),
-                ],
-              )
-            : Column(children: [leftPanel, const SizedBox(height: 20), main]);
-
-        return SingleChildScrollView(
-          controller: _scrollController,
-          physics: _sketchDrawing ? const NeverScrollableScrollPhysics() : null,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1520),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _CreateHeader(
-                    theme: theme,
-                    canSave: draft.parts.isNotEmpty && !hasBuildabilityErrors,
-                    onSave: saveModel,
-                    onNew: confirmNewModel,
-                  ),
-                  const SizedBox(height: 12),
-                  const FlowSteps(
-                    steps: [
-                      'Elige o agrega piezas',
-                      'Ajusta medidas y material',
-                      'Revisa el 3D',
-                      'Corta y arma',
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  content,
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    return WorkspaceLayout(
+      header: header,
+      left: leftPanel,
+      viewer: draft.parts.isEmpty ? emptyViewer() : buildViewer(),
+      right: rightPanel,
+      freezeLeftScroll: _sketchDrawing,
     );
   }
 

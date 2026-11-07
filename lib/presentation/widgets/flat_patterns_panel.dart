@@ -11,7 +11,7 @@ import 'stat_chip.dart';
 import 'help_tooltip.dart';
 import 'surface_card.dart';
 
-class FlatPatternsPanel extends StatelessWidget {
+class FlatPatternsPanel extends StatefulWidget {
   final CutList cutList;
   final MaterialCatalog catalog;
   final double height;
@@ -26,80 +26,105 @@ class FlatPatternsPanel extends StatelessWidget {
   });
 
   @override
+  State<FlatPatternsPanel> createState() => _FlatPatternsPanelState();
+}
+
+class _FlatPatternsPanelState extends State<FlatPatternsPanel> {
+  bool _expanded = true;
+
+  CutList get cutList => widget.cutList;
+  MaterialCatalog get catalog => widget.catalog;
+  void Function(CutListItem item)? get onOpen => widget.onOpen;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return SurfaceCard(
       padding: EdgeInsets.zero,
-      child: SizedBox(
-        height: height,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Plantillas de corte',
-                          style: theme.textTheme.titleLarge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Plantillas de corte',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Medidas reales en mm · toca una pieza para verla en grande',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Medidas reales en mm · toca una pieza para verla en grande',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const HelpTooltip(
-                    message: 'Cada tarjeta es una pieza que debes cortar. Las medidas son el largo y ancho del panel; el canto es el borde que se cubre con una cinta.',
-                  ),
-                  const SizedBox(width: 4),
-                  StatChip(icon: Icons.grid_view_outlined, label: ''),
-                ],
-              ),
+                ),
+                const HelpTooltip(
+                  message: 'Cada tarjeta es una pieza que debes cortar. Las medidas son el largo y ancho del panel; el canto es el borde que se cubre con una cinta.',
+                ),
+                const SizedBox(width: 4),
+                StatChip(
+                  icon: Icons.grid_view_outlined,
+                  label: '${cutList.items.length}',
+                ),
+                IconButton(
+                  tooltip: _expanded
+                      ? 'Contraer plantillas'
+                      : 'Expandir plantillas',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                ),
+              ],
             ),
+          ),
+          if (_expanded) ...[
             const Divider(height: 1),
-            Expanded(
-              child: cutList.items.isEmpty
-                  ? _EmptyPatterns(theme: theme)
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 300 ? 1 : 2;
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: cutList.items.length,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: columns,
-                                mainAxisExtent: 196,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                              ),
-                          itemBuilder: (context, index) {
-                            final item = cutList.items[index];
-                            return FlatPatternCard(
-                              item: item,
-                              catalog: catalog,
-                              onTap: onOpen == null
-                                  ? null
-                                  : () => onOpen!(item),
-                            );
-                          },
-                        );
-                      },
+            if (cutList.items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: _EmptyPatterns(theme: theme),
+              )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = (constraints.maxWidth / 190).floor().clamp(
+                    1,
+                    4,
+                  );
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    itemCount: cutList.items.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisExtent: 196,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
                     ),
-            ),
+                    itemBuilder: (context, index) {
+                      final item = cutList.items[index];
+                      return FlatPatternCard(
+                        item: item,
+                        catalog: catalog,
+                        onTap: onOpen == null ? null : () => onOpen!(item),
+                      );
+                    },
+                  );
+                },
+              ),
           ],
-        ),
+        ],
       ),
     );
   }

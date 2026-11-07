@@ -16,6 +16,7 @@ import 'package:mueble_cad/domain/value_objects/measurement_unit.dart';
 import 'package:mueble_cad/presentation/providers/project_context_provider.dart';
 import 'package:mueble_cad/presentation/providers/app_section_provider.dart';
 import 'package:mueble_cad/presentation/providers/custom_model_providers.dart';
+import 'package:mueble_cad/presentation/providers/designer_providers.dart';
 import 'package:mueble_cad/presentation/painters/flat_pattern_painter.dart';
 import 'package:mueble_cad/presentation/widgets/interactive_flat_pattern.dart';
 import 'package:mueble_cad/presentation/widgets/viewer_3d.dart';
@@ -66,7 +67,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // (1200 - 2*18 - 3*2) / 2 = 579 mm por puerta.
-    expect(find.text('579'), findsWidgets);
+    expect(find.textContaining('579'), findsWidgets);
   });
 
   testWidgets('permite abrir el detalle de una pieza desde el despiece', (
@@ -103,6 +104,8 @@ void main() {
     expect(find.byKey(const Key('country_selector')), findsOneWidget);
     expect(find.text('Materiales recomendados'), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('country_selector')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('country_selector')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Estados Unidos').last);
@@ -376,6 +379,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Explorar muebles'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('al enfocar una medida se resalta en el visor', (tester) async {
+    await pumpApp(tester);
+
+    final widthField = find.byKey(const Key('width_field'));
+    await tester.tap(widthField);
+    await tester.pump();
+    final container = ProviderScope.containerOf(tester.element(widthField));
+    expect(container.read(dimensionFocusProvider), 'width');
   });
 
   testWidgets('abre la guía rápida desde el botón de ayuda', (tester) async {

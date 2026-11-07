@@ -7,14 +7,14 @@ import '../../app/theme/app_theme.dart';
 import 'help_tooltip.dart';
 
 import '../../core/constants/units.dart';
-import '../../domain/entities/material.dart';
+import '../../domain/entities/material.dart' show MaterialCatalog;
 import '../../domain/services/cut_list_calculator.dart';
 import '../../domain/services/board_nesting_calculator.dart';
 import '../painters/part_palette.dart';
 import 'stat_chip.dart';
 import 'surface_card.dart';
 
-class CutListTable extends StatelessWidget {
+class CutListTable extends StatefulWidget {
   final CutList cutList;
   final MaterialCatalog catalog;
   final void Function(CutListItem item)? onItemTap;
@@ -25,6 +25,17 @@ class CutListTable extends StatelessWidget {
     required this.catalog,
     this.onItemTap,
   });
+
+  @override
+  State<CutListTable> createState() => _CutListTableState();
+}
+
+class _CutListTableState extends State<CutListTable> {
+  bool _expanded = true;
+
+  CutList get cutList => widget.cutList;
+  MaterialCatalog get catalog => widget.catalog;
+  void Function(CutListItem item)? get onItemTap => widget.onItemTap;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +90,12 @@ class CutListTable extends StatelessWidget {
           icon: const Icon(Icons.copy_all_outlined, size: 19),
         ),
       ),
+      IconButton(
+        tooltip: _expanded ? 'Contraer despiece' : 'Expandir despiece',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => setState(() => _expanded = !_expanded),
+        icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+      ),
     ];
 
     return SurfaceCard(
@@ -108,173 +125,192 @@ class CutListTable extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Kerf ${formatMm(cutList.kerfMm)} mm · recorrido estimado por perímetros: ${formatMeters(cutList.estimatedCutLengthM)} m · pérdida estimada: ${formatM2(cutList.estimatedKerfLossM2)} m². Los mapas siguientes usan un nesting heurístico y deben verificarse con el patrón de corte de tu taller.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.85),
-                ),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          if (_expanded) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Kerf ${formatMm(cutList.kerfMm)} mm · recorrido estimado por perímetros: ${formatMeters(cutList.estimatedCutLengthM)} m · pérdida estimada: ${formatM2(cutList.estimatedKerfLossM2)} m². Los mapas siguientes usan un nesting heurístico y deben verificarse con el patrón de corte de tu taller.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 1010),
-                  child: DataTable(
-                    showCheckboxColumn: false,
-                    headingRowHeight: 44,
-                    dataRowMinHeight: 42,
-                    dataRowMaxHeight: 48,
-                    horizontalMargin: 16,
-                    columnSpacing: 24,
-                    headingTextStyle: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 1000) {
+                  return _CompactCutList(
+                    cutList: cutList,
+                    catalog: catalog,
+                    onItemTap: onItemTap,
+                  );
+                }
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      border: Border.all(
+                        color: scheme.outlineVariant.withValues(alpha: 0.85),
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     ),
-                    dataTextStyle: theme.textTheme.bodyMedium,
-                    columns: const [
-                      DataColumn(label: Text('Pieza')),
-                      DataColumn(
-                        label: Tooltip(
-                          message: 'Cantidad de piezas iguales que necesitas.',
-                          child: Text('Cant.'),
-                        ),
-                        numeric: true,
-                      ),
-                      DataColumn(label: Text('Largo'), numeric: true),
-                      DataColumn(label: Text('Ancho'), numeric: true),
-                      DataColumn(
-                        label: Tooltip(
-                          message: 'Grosor del tablero en milímetros.',
-                          child: Text('Esp.'),
-                        ),
-                        numeric: true,
-                      ),
-                      DataColumn(label: Text('Material')),
-                      DataColumn(
-                        label: Tooltip(
-                          message: 'Dirección del dibujo de la madera. Sirve para que las piezas se vean uniformes.',
-                          child: Text('Veta'),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Tooltip(
-                          message: 'Bordes cubiertos con una cinta llamada canto. Se compra por metro lineal.',
-                          child: Text('Cantos'),
-                        ),
-                        numeric: true,
-                      ),
-                      DataColumn(label: Text('Área m²'), numeric: true),
-                      DataColumn(label: Text('Ver')),
-                    ],
-                    rows: [
-                      for (final item in cutList.items)
-                        DataRow(
-                          color: WidgetStatePropertyAll(
-                            cutList.items.indexOf(item).isEven
-                                ? Colors.transparent
-                                : AppTheme.rowStripe,
-                          ),
-                          onSelectChanged: onItemTap == null
-                              ? null
-                              : (_) => onItemTap!(item),
-                          cells: [
-                            DataCell(
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    partIcon(item.kind),
-                                    size: 17,
-                                    color: scheme.onSurfaceVariant,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 980),
+                        child: DataTable(
+                          showCheckboxColumn: false,
+                          headingRowHeight: 44,
+                          dataRowMinHeight: 42,
+                          dataRowMaxHeight: 48,
+                          horizontalMargin: 16,
+                          columnSpacing: 24,
+                          headingTextStyle: theme.textTheme.labelMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                          dataTextStyle: theme.textTheme.bodyMedium,
+                          columns: const [
+                            DataColumn(label: Text('Pieza')),
+                            DataColumn(
+                              label: Tooltip(
+                                message:
+                                    'Cantidad de piezas iguales que necesitas.',
+                                child: Text('Cant.'),
+                              ),
+                              numeric: true,
+                            ),
+                            DataColumn(label: Text('Largo'), numeric: true),
+                            DataColumn(label: Text('Ancho'), numeric: true),
+                            DataColumn(
+                              label: Tooltip(
+                                message: 'Grosor del tablero en milímetros.',
+                                child: Text('Esp.'),
+                              ),
+                              numeric: true,
+                            ),
+                            DataColumn(label: Text('Material')),
+                            DataColumn(
+                              label: Tooltip(
+                                message: 'Dirección del dibujo de la madera. Sirve para que las piezas se vean uniformes.',
+                                child: Text('Veta'),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Tooltip(
+                                message: 'Bordes cubiertos con una cinta llamada canto. Se compra por metro lineal.',
+                                child: Text('Cantos'),
+                              ),
+                              numeric: true,
+                            ),
+                            DataColumn(label: Text('Área m²'), numeric: true),
+                            DataColumn(label: Text('Ver')),
+                          ],
+                          rows: [
+                            for (final item in cutList.items)
+                              DataRow(
+                                color: WidgetStatePropertyAll(
+                                  cutList.items.indexOf(item).isEven
+                                      ? Colors.transparent
+                                      : AppTheme.rowStripe,
+                                ),
+                                onSelectChanged: onItemTap == null
+                                    ? null
+                                    : (_) => onItemTap!(item),
+                                cells: [
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          partIcon(item.kind),
+                                          size: 17,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          item.name,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    item.name,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                  DataCell(
+                                    Text(
+                                      '×${item.quantity}',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                  DataCell(Text(formatMm(item.cutSize.length))),
+                                  DataCell(Text(formatMm(item.cutSize.width))),
+                                  DataCell(
+                                    Text(formatMm(item.cutSize.thickness)),
+                                  ),
+                                  DataCell(Text(item.materialName)),
+                                  DataCell(Text(item.grain.label)),
+                                  DataCell(
+                                    Tooltip(
+                                      message: item.bandedEdgeCount == 0
+                                          ? 'Sin canto'
+                                          : '${formatMeters(item.bandingLengthM)} m de canto',
+                                      child: Text(_bandingLabel(item)),
+                                    ),
+                                  ),
+                                  DataCell(Text(formatM2(item.areaM2))),
+                                  DataCell(
+                                    Icon(
+                                      onItemTap == null
+                                          ? Icons.remove
+                                          : Icons.visibility_outlined,
+                                      size: 18,
+                                      color: onItemTap == null
+                                          ? scheme.outline
+                                          : scheme.primary,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            DataCell(
-                              Text(
-                                '×${item.quantity}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: scheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            DataCell(Text(formatMm(item.cutSize.length))),
-                            DataCell(Text(formatMm(item.cutSize.width))),
-                            DataCell(Text(formatMm(item.cutSize.thickness))),
-                            DataCell(Text(item.materialName)),
-                            DataCell(Text(item.grain.label)),
-                            DataCell(
-                              Tooltip(
-                                message: item.bandedEdgeCount == 0
-                                    ? 'Sin canto'
-                                    : '${formatMeters(item.bandingLengthM)} m de canto',
-                                child: Text(_bandingLabel(item)),
-                              ),
-                            ),
-                            DataCell(Text(formatM2(item.areaM2))),
-                            DataCell(
-                              Icon(
-                                onItemTap == null
-                                    ? Icons.remove
-                                    : Icons.visibility_outlined,
-                                size: 18,
-                                color: onItemTap == null
-                                    ? scheme.outline
-                                    : scheme.primary,
-                              ),
-                            ),
                           ],
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                ),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            _BoardNestingMaps(nesting: cutList.nesting),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in cutList.areaByMaterial.entries)
+                  Tooltip(
+                    message: catalog.byId(entry.key)?.name ?? entry.key,
+                    child: StatChip(
+                      icon: Icons.layers_outlined,
+                      label:
+                          '${_shortMaterialName(entry.key)}: ${formatM2(entry.value)} m²',
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Las medidas están en milímetros. El despiece se deriva de la geometría del mueble, no se digita aparte.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          _BoardNestingMaps(nesting: cutList.nesting),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final entry in cutList.areaByMaterial.entries)
-                Tooltip(
-                  message: catalog.byId(entry.key)?.name ?? entry.key,
-                  child: StatChip(
-                    icon: Icons.layers_outlined,
-                    label:
-                        '${_shortMaterialName(entry.key)}: ${formatM2(entry.value)} m²',
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Las medidas están en milímetros. El despiece se deriva de la geometría del mueble, no se digita aparte.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -309,6 +345,163 @@ class CutListTable extends StatelessWidget {
   String _shortMaterialName(String id) {
     final name = catalog.byId(id)?.name ?? id;
     return name.split(' (').first.replaceAll(' mm', '');
+  }
+}
+
+class _CompactCutList extends StatelessWidget {
+  final CutList cutList;
+  final MaterialCatalog catalog;
+  final void Function(CutListItem item)? onItemTap;
+
+  const _CompactCutList({
+    required this.cutList,
+    required this.catalog,
+    required this.onItemTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: cutList.items.length,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 320,
+        mainAxisExtent: 132,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemBuilder: (context, index) {
+        final item = cutList.items[index];
+        return _CompactCutRow(
+          item: item,
+          catalog: catalog,
+          onTap: onItemTap == null ? null : () => onItemTap!(item),
+        );
+      },
+    );
+  }
+}
+
+class _CompactCutRow extends StatelessWidget {
+  final CutListItem item;
+  final MaterialCatalog catalog;
+  final VoidCallback? onTap;
+
+  const _CompactCutRow({
+    required this.item,
+    required this.catalog,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.8),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    partIcon(item.kind),
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '×${item.quantity}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 5,
+                runSpacing: 4,
+                children: [
+                  _MetaTag(
+                    label:
+                        '${formatMm(item.cutSize.length)} × ${formatMm(item.cutSize.width)} × ${formatMm(item.cutSize.thickness)} mm',
+                  ),
+                  _MetaTag(
+                    label:
+                        catalog.byId(item.materialId)?.name ??
+                        item.materialName,
+                  ),
+                  _MetaTag(label: item.grain.label),
+                  _MetaTag(
+                    label: item.bandedEdgeCount == 0
+                        ? 'Sin canto'
+                        : '${item.bandedEdgeCount} canto${item.bandedEdgeCount == 1 ? '' : 's'}',
+                  ),
+                  _MetaTag(label: '${formatM2(item.areaM2)} m²'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaTag extends StatelessWidget {
+  final String label;
+
+  const _MetaTag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
   }
 }
 
@@ -369,17 +562,19 @@ class _BoardNestingMaps extends StatelessWidget {
             ),
           )
         else
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final material in materialLayouts)
-                  for (final sheet in material.sheets)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: SizedBox(
-                        width: 280,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = constraints.maxWidth >= 620
+                  ? 280.0
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final material in materialLayouts)
+                    for (final sheet in material.sheets)
+                      SizedBox(
+                        width: cardWidth,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -399,7 +594,7 @@ class _BoardNestingMaps extends StatelessWidget {
                             ),
                             const SizedBox(height: 5),
                             SizedBox(
-                              width: 280,
+                              width: cardWidth,
                               height: 190,
                               child: CustomPaint(
                                 painter: _NestingSheetPainter(sheet),
@@ -408,9 +603,9 @@ class _BoardNestingMaps extends StatelessWidget {
                           ],
                         ),
                       ),
-                    ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
       ],
     );
