@@ -1,26 +1,44 @@
-# syntax=docker/dockerfile:1.7
+# Build de Flutter web usando el SDK oficial desde Google Storage.
+# Evita la imagen de GHCR (~2 GB) que fallaba por cortes de red.
+FROM debian:bookworm-slim AS build
 
-# Imagen oficial de Flutter para construir la app web.
-# "stable" es la etiqueta publicada y mantenida por Cirrus Labs.
-# Si necesitas fijar una versión, usa una etiqueta que exista en:
-#   https://github.com/cirruslabs/docker-images-flutter/pkgs/container/flutter
-ARG FLUTTER_IMAGE=ghcr.io/cirruslabs/flutter:stable
+ARG FLUTTER_VERSION=3.47.6
+ARG FLUTTER_SHA256=f1631b9c2c8b3529323db412b0d1beacf4a748f8783b0d7cf599a8fd5f461675
 
-FROM ${FLUTTER_IMAGE} AS build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CI=true
+ENV FLUTTER_SUPPRESS_ANALYTICS=true
+ENV PATH="/opt/flutter/bin:${PATH}"
 
-# El stage de compilación corre como root para poder escribir /app
-# independientemente del usuario por defecto de la imagen de Flutter.
-USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        unzip \
+        wget \
+        xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# wget -c reanuda la descarga si la conexión se corta.
+RUN set -eux; \
+    wget -c \
+        --tries=20 \
+        --waitretry=5 \
+        --timeout=30 \
+        -O /tmp/flutter.tar.xz \
+        "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"; \
+    echo "${FLUTTER_SHA256}  /tmp/flutter.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/flutter.tar.xz -C /opt; \
+    rm /tmp/flutter.tar.xz; \
+    git config --global --add safe.directory /opt/flutter; \
+    flutter config --no-analytics; \
+    flutter config --enable-web; \
+    flutter --version
 
 WORKDIR /app
 
-ENV CI=true
-ENV FLUTTER_SUPPRESS_ANALYTICS=true
-
-# Cachea dependencias antes de copiar el código.
 COPY pubspec.yaml pubspec.lock ./
-RUN flutter config --enable-web \
-    && flutter pub get
+RUN flutter pub get
 
 COPY . .
 
