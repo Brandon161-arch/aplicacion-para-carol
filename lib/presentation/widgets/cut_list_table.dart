@@ -367,7 +367,7 @@ class _CompactCutList extends StatelessWidget {
       itemCount: cutList.items.length,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 320,
-        mainAxisExtent: 132,
+        mainAxisExtent: 176,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
